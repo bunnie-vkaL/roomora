@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'profile_form.css' %}">
+<link rel="stylesheet" href="{% static 'profile_identity.css' %}">
+<link rel="stylesheet" href="{% static 'profile_image.css' %}">
+<section class="profile-edit-header">
+  <div>
+    <p class="eyebrow">Hồ sơ cá nhân · Bước 1/2</p>
+    <h1>Giới thiệu về bạn</h1>
+    <p>Những thông tin này giúp người phù hợp hiểu bạn hơn trước khi kết nối.</p>
+  </div>
+  <aside class="profile-edit-note">
+    <span>01</span><p><strong>Thông tin cơ bản</strong><br>Tiếp theo, bạn sẽ trả lời 19 câu hỏi về lối sống.</p>
+  </aside>
+</section>
+
+<form class="profile-edit-form" method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="profile-form-errors">{{ form.non_field_errors }}</div>{% endif %}
+
+  <section class="profile-section">
+    <div class="profile-section__heading"><p class="eyebrow">01 · Bạn là ai</p><h2>Thông tin cơ bản</h2><p>Tên hiển thị và các thông tin giúp roommate biết thêm về bạn.</p></div>
+    <div class="profile-section__fields profile-section__fields--identity">
+      <label class="profile-field--name">{{ form.name.label }}{{ form.name }}{% for error in form.name.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      <label class="profile-field--age">{{ form.age.label }}{{ form.age }}{% for error in form.age.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      <label class="profile-field--birth-year">{{ form.birth_year.label }}{{ form.birth_year }}{% for error in form.birth_year.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      <label class="profile-field--gender">{{ form.gender.label }}{{ form.gender }}{% for error in form.gender.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      <label class="profile-field--hometown">{{ form.hometown.label }}{{ form.hometown }}{% for error in form.hometown.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      <label class="profile-field--bio">{{ form.bio.label }}{{ form.bio }}{% for error in form.bio.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+    </div>
+  </section>
+
+  <section class="profile-section">
+    <div class="profile-section__heading"><p class="eyebrow">02 · Ảnh đại diện</p><h2>Ảnh của bạn</h2><p>Một bức ảnh giúp hồ sơ gần gũi hơn. Bạn có thể bỏ qua mục này.</p></div>
+    <div class="profile-avatar-upload profile-section__content">
+      <div class="profile-avatar-preview" id="form-avatar-preview" title="Bấm để chọn ảnh đại diện">
+        {% if profile.avatar %}
+          <img src="{{ profile.avatar.url }}" alt="Ảnh đại diện hiện tại">
+        {% else %}
+          <span class="avatar-letter">{{ profile.name|default:user.email|slice:':1'|upper }}</span>
+        {% endif %}
+      </div>
+      <div class="profile-avatar-controls">
+        <label class="profile-avatar-label" for="{{ form.avatar.id_for_label }}">{{ form.avatar.label }}</label>
+        {{ form.avatar }}
+        <p>Không bắt buộc · JPG, PNG hoặc WebP · tối đa 5 MB</p>
+        <button type="button" id="btn-delete-avatar" class="avatar-delete-link" style="{% if not profile.avatar %}display:none;{% endif %} background:none; border:none; color:#a33; font-size:0.82rem; cursor:pointer; padding:2px 0 0; text-align:left; text-decoration:underline;">Xóa ảnh hiện tại</button>
+        <div id="avatar-upload-status" class="avatar-upload-status" style="display:none; margin-top: 6px; font-size: 0.84rem; font-weight: 600;"></div>
+        {% for error in form.avatar.errors %}<small class="error">{{ error }}</small>{% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="profile-section">
+    <div class="profile-section__heading"><p class="eyebrow">03 · Nơi bạn muốn sống</p><h2>Khu vực và ngân sách</h2><p>Chúng tôi chỉ đề xuất hồ sơ có ít nhất một khu vực và khoảng ngân sách giao nhau.</p></div>
+    <div class="profile-section__content">
+      <fieldset class="area-fieldset"><legend>{{ form.areas.label }}</legend>{{ form.areas }}{% for error in form.areas.errors %}<small class="error">{{ error }}</small>{% endfor %}</fieldset>
+      <div class="profile-section__fields profile-section__fields--two">
+        <label>{{ form.rent_min.label }}{{ form.rent_min }}{% for error in form.rent_min.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ form.rent_max.label }}{{ form.rent_max }}{% for error in form.rent_max.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="profile-section">
+    <div class="profile-section__heading"><p class="eyebrow">04 · Kết nối</p><h2>Thông tin liên hệ</h2><p>Chỉ hiển thị sau khi cả hai cùng đồng ý kết nối.</p></div>
+    <div class="profile-section__fields profile-section__fields--two profile-section__content">
+      <label>{{ form.contact_type.label }}{{ form.contact_type }}{% for error in form.contact_type.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      <label>{{ form.contact_value.label }}{{ form.contact_value }}{% for error in form.contact_value.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+    </div>
+  </section>
+
+  <footer class="profile-edit-actions"><p>Thông tin được lưu trước khi bạn chuyển sang phần lối sống.</p><button class="gold">Tiếp tục đến lifestyle</button></footer>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const avatarInput = document.getElementById('id_avatar') || document.querySelector('input[type="file"][name="avatar"]');
+  const formPreview = document.getElementById('form-avatar-preview');
+  const headerAvatar = document.getElementById('header-avatar');
+  const btnDeleteAvatar = document.getElementById('btn-delete-avatar');
+  const nameInput = document.getElementById('id_name') || document.querySelector('input[name="name"]');
+  const statusEl = document.getElementById('avatar-upload-status');
+
+  if (!avatarInput) return;
+
+  let initialFormHtml = formPreview ? formPreview.innerHTML : '';
+  let initialHeaderHtml = headerAvatar ? headerAvatar.innerHTML : '';
+  let statusTimeout = null;
+
+  function showStatus(text, type) {
+    if (!statusEl) return;
+    if (statusTimeout) clearTimeout(statusTimeout);
+    statusEl.textContent = text;
+    statusEl.style.display = 'block';
+    if (type === 'success') {
+      statusEl.style.color = '#2e7d32';
+    } else if (type === 'error') {
+      statusEl.style.color = '#c62828';
+    } else {
+      statusEl.style.color = '#b8860b';
+    }
+  }
+
+  function clearStatus(delayMs = 3500) {
+    if (!statusEl) return;
+    statusTimeout = setTimeout(() => {
+      statusEl.style.display = 'none';
+      statusEl.textContent = '';
+    }, delayMs);
+  }
+
+  function setAvatars(src) {
+    if (formPreview) {
+      formPreview.innerHTML = '<img src="' + src + '" alt="Ảnh đại diện xem trước">';
+    }
+    if (headerAvatar) {
+      headerAvatar.innerHTML = '<img src="' + src + '" alt="Ảnh đại diện">';
+    }
+  }
+
+  function resetAvatars() {
+    if (formPreview) {
+      formPreview.innerHTML = initialFormHtml;
+    }
+    if (headerAvatar) {
+      headerAvatar.innerHTML = initialHeaderHtml;
+    }
+  }
+
+  function uploadAvatarFile(file) {
+    showStatus('⏳ Đang lưu ảnh vào database...', 'loading');
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '{{ csrf_token }}';
+    formData.append('csrfmiddlewaretoken', csrfToken);
+
+    fetch("{% url 'upload_avatar' %}", {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        showStatus('✓ ' + data.message, 'success');
+        clearStatus(3500);
+        setAvatars(data.avatar_url);
+        initialFormHtml = formPreview ? formPreview.innerHTML : '';
+        initialHeaderHtml = headerAvatar ? headerAvatar.innerHTML : '';
+        if (btnDeleteAvatar) {
+          btnDeleteAvatar.style.display = 'inline-block';
+        }
+      } else {
+        showStatus('❌ ' + (data.error || 'Lỗi khi lưu ảnh.'), 'error');
+        resetAvatars();
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showStatus('❌ Không thể lưu ảnh vào database. Vui lòng thử lại.', 'error');
+      resetAvatars();
+    });
+  }
+
+  function deleteAvatarFile() {
+    showStatus('⏳ Đang xóa ảnh trong database...', 'loading');
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || '{{ csrf_token }}';
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+
+    fetch("{% url 'delete_avatar' %}", {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        showStatus('✓ ' + data.message, 'success');
+        clearStatus(3000);
+        const fallbackInitial = data.initial || '{{ profile.name|default:user.email|slice:":1"|upper|default:"R" }}';
+        if (formPreview) {
+          formPreview.innerHTML = '<span class="avatar-letter">' + fallbackInitial + '</span>';
+        }
+        if (headerAvatar) {
+          headerAvatar.innerHTML = '<span class="avatar-letter">' + fallbackInitial + '</span>';
+        }
+        initialFormHtml = formPreview ? formPreview.innerHTML : '';
+        initialHeaderHtml = headerAvatar ? headerAvatar.innerHTML : '';
+        avatarInput.value = '';
+        if (btnDeleteAvatar) {
+          btnDeleteAvatar.style.display = 'none';
+        }
+      } else {
+        showStatus('❌ ' + (data.error || 'Lỗi khi xóa ảnh.'), 'error');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showStatus('❌ Lỗi khi gửi yêu cầu xóa ảnh.', 'error');
+    });
+  }
+
+  avatarInput.addEventListener('change', function () {
+    const file = this.files && this.files[0];
+    if (!file) {
+      resetAvatars();
+      return;
+    }
+
+    if (!file.type || !file.type.startsWith('image/')) {
+      alert('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG hoặc WebP).');
+      this.value = '';
+      resetAvatars();
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước ảnh đại diện cần nhỏ hơn 5 MB.');
+      this.value = '';
+      resetAvatars();
+      return;
+    }
+
+    // 1. Instant preview in form and top corner
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      setAvatars(e.target.result);
+    };
+    reader.readAsDataURL(file);
+
+    // 2. Immediate save to database via AJAX
+    uploadAvatarFile(file);
+  });
+
+  if (btnDeleteAvatar) {
+    btnDeleteAvatar.addEventListener('click', function () {
+      if (confirm('Bạn có chắc chắn muốn xóa ảnh đại diện này không?')) {
+        deleteAvatarFile();
+      }
+    });
+  }
+
+  if (formPreview) {
+    formPreview.addEventListener('click', function () {
+      avatarInput.click();
+    });
+
+    ['dragenter', 'dragover'].forEach(function (eventName) {
+      formPreview.addEventListener(eventName, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        formPreview.style.boxShadow = '0 0 0 3px var(--gold)';
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(function (eventName) {
+      formPreview.addEventListener(eventName, function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        formPreview.style.boxShadow = '';
+      });
+    });
+
+    formPreview.addEventListener('drop', function (e) {
+      const dt = e.dataTransfer;
+      const files = dt && dt.files;
+      if (files && files.length > 0) {
+        avatarInput.files = files;
+        avatarInput.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+
+  if (nameInput) {
+    nameInput.addEventListener('input', function () {
+      const hasImage = (avatarInput.files && avatarInput.files[0]) || (formPreview && formPreview.querySelector('img'));
+      if (!hasImage) {
+        const letter = (this.value.trim().charAt(0) || '{{ user.email|slice:":1"|upper|default:"R" }}').toUpperCase();
+        if (formPreview && !formPreview.querySelector('img')) {
+          formPreview.innerHTML = '<span class="avatar-letter">' + letter + '</span>';
+        }
+        if (headerAvatar && !headerAvatar.querySelector('img')) {
+          headerAvatar.innerHTML = '<span class="avatar-letter">' + letter + '</span>';
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

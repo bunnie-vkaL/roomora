@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'discover.css' %}">
+<section class="discover-header">
+  <div class="discover-header__copy"><p class="eyebrow">Khám phá</p><h1>Những người phù hợp với bạn</h1><p>Tất cả hồ sơ bên dưới đều có khu vực và khoảng ngân sách giao nhau với bạn.</p></div>
+  <form class="discover-filters" method="get">
+    <label><span>Khu vực</span><select name="area"><option value="">Tất cả khu vực chung</option>{% for area in areas %}<option value="{{ area }}" {% if selected_area == area %}selected{% endif %}>{{ area }}</option>{% endfor %}</select></label>
+    <label><span>Ngân sách muốn xem</span><input type="number" name="rent" min="1" max="100000000" step="500000" value="{{ rent|default:'' }}" placeholder="Ví dụ: 5000000"></label>
+    <button class="button gold">Áp dụng</button>
+  </form>
+</section>
+{% if matches %}
+<section class="discover-results" aria-label="Danh sách hồ sơ phù hợp">
+  <div class="discover-results__meta"><p class="eyebrow">Gợi ý cho bạn</p><p>{{ matches|length }} hồ sơ được xếp theo độ phù hợp lifestyle.</p></div>
+  <div class="discover-grid">
+    {% for other,result in matches %}
+    <article class="candidate-card">
+      <div class="candidate-card__top">{% if other.is_synthetic %}<span class="demo-label">Dữ liệu demo</span>{% endif %}<span class="score">{{ result.score }}%</span></div>
+      <div class="candidate-card__body">
+        <p class="candidate-card__label">Lifestyle match</p><h2>{{ other.name }}, {{ other.age }}</h2><p class="candidate-card__areas">{{ other.areas|join:', ' }}</p><p class="candidate-card__budget">{{ other.rent_min }} – {{ other.rent_max }} VND / tháng</p>
+        {% if other.bio %}<p class="candidate-card__bio">{{ other.bio }}</p>{% endif %}
+        <div class="candidate-card__similarities"><span>Điểm tương đồng</span><ul>{% for item in result.similarities|slice:':2' %}<li>{{ item }}</li>{% empty %}<li>Đang cập nhật so sánh lifestyle.</li>{% endfor %}</ul></div>
+        <a class="button secondary" href="{% url 'comparison' other.pk %}">Xem so sánh</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="discover-empty empty"><p class="eyebrow">Chưa có kết quả</p><h2>Chưa tìm thấy match phù hợp</h2><p>Thử thay đổi khu vực hoặc ngân sách, hoặc quay lại khi có thêm người tham gia.</p></section>
+{% endif %}
+{% endblock %}

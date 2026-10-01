@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<section class="form-card"><h1>Tạo tài khoản</h1><p>Chúng tôi dùng email để bảo vệ tài khoản của bạn.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button>Tạo tài khoản</button></form><p>Đã có tài khoản? <a href="{% url 'login' %}">Đăng nhập</a></p></section>{% endblock %}

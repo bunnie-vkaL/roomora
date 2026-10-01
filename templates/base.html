@@ -1,0 +1,61 @@
+{% load static %}<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>{% block title %}ROOMORA · More than a room{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'app.css' %}">
+  <link rel="stylesheet" href="{% static 'profile.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-shell">
+      <a class="brand" href="{% url 'home' %}">ROOMORA</a>
+      <nav class="nav-links">
+        {% if user.is_authenticated %}
+          <a href="{% url 'dashboard' %}">Trang chủ</a>
+          <a href="{% url 'discover' %}">Khám phá</a>
+          <a href="{% url 'profile_edit' %}">Hồ sơ</a>
+          {% if user.is_staff %}
+            <a href="{% url 'pilot_results' %}">Pilot</a>
+          {% endif %}
+        {% else %}
+          <a href="{% url 'home' %}">Cách hoạt động</a>
+          <a href="{% url 'register' %}">Tạo hồ sơ</a>
+        {% endif %}
+      </nav>
+      <div class="nav-actions">
+        {% if user.is_authenticated %}
+          <span class="avatar" id="header-avatar" title="{{ user.profile.name|default:user.email }}">
+            {% if user.profile.avatar %}
+              <img src="{{ user.profile.avatar.url }}" alt="{{ user.profile.name|default:user.email }}">
+            {% else %}
+              <span class="avatar-letter">{{ user.profile.name|default:user.email|slice:':1'|upper }}</span>
+            {% endif %}
+          </span>
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button class="link-button">Đăng xuất</button>
+          </form>
+        {% else %}
+          <a href="{% url 'login' %}">Đăng nhập</a>
+          <a class="button gold" href="{% url 'register' %}">Bắt đầu</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+  <main class="page-shell">
+    {% for message in messages %}
+      <div class="message">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  {% if user.is_authenticated %}
+    <nav class="mobile-nav">
+      <a href="{% url 'dashboard' %}">Trang chủ</a>
+      <a href="{% url 'discover' %}">Khám phá</a>
+      <a href="{% url 'profile_edit' %}">Hồ sơ</a>
+    </nav>
+  {% endif %}
+</body>
+</html>
