@@ -20,7 +20,7 @@ class Profile(models.Model):
     contact_value = models.CharField(max_length=100)
     is_published = models.BooleanField(default=False)
     is_synthetic = models.BooleanField(default=False)
-    questionnaire_version = models.CharField(max_length=20, default="2026.1")
+    questionnaire_version = models.CharField(max_length=20, default="2026.2")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -48,7 +48,8 @@ class LifestyleAnswers(models.Model):
 
     @property
     def is_complete(self):
-        return all(key in self.values and isinstance(self.values[key], int) for key, *_ in QUESTIONS)
+        return all(type(self.values.get(key)) is int and 0 <= self.values[key] < len(options)
+                   for key, _, _, options in QUESTIONS)
 
 
 class ConnectionRequest(models.Model):

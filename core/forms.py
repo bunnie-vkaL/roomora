@@ -64,7 +64,7 @@ class LifestyleQuestionForm(forms.Form):
         super().__init__(*args, **kwargs)
         key, _, label, options = question
         self.question_key = key
-        self.fields[key] = forms.ChoiceField(label=label, choices=[(i, option) for i, option in enumerate(options)], widget=forms.RadioSelect, initial=initial_value)
+        self.fields[key] = forms.ChoiceField(label=label, choices=[(i, option) for i, option in enumerate(options)], widget=forms.RadioSelect, initial=initial_value, error_messages={"required": "Hãy chọn một câu trả lời."})
 
     def answer(self):
         return int(self.cleaned_data[self.question_key])

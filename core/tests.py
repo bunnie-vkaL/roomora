@@ -1,9 +1,9 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
-from .constants import AREAS, BUDGET_CHOICES, QUESTIONS
+from .constants import AREAS, BUDGET_CHOICES, QUESTIONS, QUESTION_WEIGHTS
 from .forms import ProfileForm
 from .models import ConnectionRequest, LifestyleAnswers, Profile
-from .scoring import score_profiles
+from .scoring import _calibrate, _similarity, score_profiles
 
 
 def profile(email, values=None, **extra):
@@ -11,28 +11,54 @@ def profile(email, values=None, **extra):
     data = {"name": f"Người dùng {email.split('@')[0]}", "age": 25, "birth_year": 2001, "hometown": "Hà Nội", "areas": ["Cầu Giấy"], "rent_min": 3000000, "rent_max": 5000000, "contact_type": "zalo", "contact_value": "zalo", "is_published": True}
     data.update(extra)
     item = Profile.objects.create(user=user, **data)
-    LifestyleAnswers.objects.create(profile=item, values=values or {key: 0 for key, *_ in QUESTIONS})
+    LifestyleAnswers.objects.create(profile=item, values=values if values is not None else {key: 0 for key, *_ in QUESTIONS})
     return item
 
 
 class ScoringTests(TestCase):
-    def test_identical_profiles_score_100(self):
+    def test_survey_has_source_weights_and_calibration(self):
+        self.assertEqual(len(QUESTIONS), 16)
+        self.assertAlmostEqual(sum(QUESTION_WEIGHTS.values()), .92)
+        self.assertEqual(_calibrate(.613), 50)
+        self.assertEqual(_calibrate(.710), 78)
+        self.assertEqual(_calibrate(1.15), 99)
+        self.assertAlmostEqual(_similarity("C2", 0, 1), .85)
+        self.assertAlmostEqual(_similarity("A1", 0, 1), 11 / 12)
+
+    def test_identical_profiles_score_99_with_budget_bonus(self):
         a, b = profile("a@test.com"), profile("b@test.com")
-        self.assertEqual(score_profiles(a, b).score, 100)
+        self.assertEqual(score_profiles(a, b).score, 99)
 
     def test_scoring_is_symmetric(self):
-        left = {key: 0 for key, *_ in QUESTIONS}; right = {key: len(options)-1 for key, _, _, options in QUESTIONS}
+        left = {key: 0 for key, *_ in QUESTIONS}; right = left.copy()
+        right.update(A1=1, A2=1, B1=1, C2=1, D4=1, E1=1, F2=1)
         a, b = profile("a@test.com", left), profile("b@test.com", right)
         self.assertEqual(score_profiles(a, b).score, score_profiles(b, a).score)
 
     def test_pet_allergy_excludes(self):
-        values_a = {key: 0 for key, *_ in QUESTIONS}; values_b = values_a.copy(); values_a["has_pet"] = 2; values_b["pet_comfort"] = 0
+        values_a = {key: 0 for key, *_ in QUESTIONS}; values_b = values_a.copy(); values_a["D3"] = 1; values_b["D2"] = 2
         self.assertTrue(score_profiles(profile("a@test.com", values_a), profile("b@test.com", values_b)).excluded)
 
-    def test_guest_and_smoking_warnings(self):
-        a = {key: 0 for key, *_ in QUESTIONS}; b = a.copy(); a["guest_frequency"] = 4; b["privacy"] = 0; b["smoking"] = 2
-        result = score_profiles(profile("a@test.com", a), profile("b@test.com", b))
-        self.assertTrue(result.warnings); self.assertLessEqual(result.groups["guests"], 40)
+    def test_hard_conflict_and_cross_penalty(self):
+        base = {key: 0 for key, *_ in QUESTIONS}
+        mismatch = base.copy(); mismatch["B1"] = 2
+        self.assertTrue(score_profiles(profile("a@test.com", base), profile("b@test.com", mismatch)).excluded)
+        quiet = base.copy(); noisy = base.copy(); noisy["D4"] = 2
+        quiet_profile = profile("c@test.com", quiet); noisy_profile = profile("d@test.com", noisy)
+        result = score_profiles(quiet_profile, noisy_profile)
+        self.assertFalse(result.excluded)
+        self.assertLess(result.score, score_profiles(quiet_profile, quiet_profile).score)
+        self.assertTrue(any("xung đột" in warning for warning in result.warnings))
+
+    def test_invalid_or_legacy_answers_do_not_score(self):
+        old = profile("old@test.com", values={"bedtime": 0})
+        new = profile("new@test.com")
+        self.assertIsNone(score_profiles(old, new).score)
+        old.answers.values = new.answers.values.copy()
+        old.answers.save()
+        old.questionnaire_version = "2026.1"
+        old.save(update_fields=["questionnaire_version"])
+        self.assertIsNone(score_profiles(old, new).score)
 
 
 class FlowTests(TestCase):
@@ -56,6 +82,22 @@ class FlowTests(TestCase):
         self.assertRedirects(response, "/questionnaire/?step=2")
         item.answers.refresh_from_db()
         self.assertEqual(item.answers.values[QUESTIONS[0][0]], 2)
+
+    def test_cannot_publish_by_jumping_to_final_question(self):
+        item = profile("skip@test.com", values={}, is_published=False)
+        self.client.login(username="skip@test.com", password="strong-password-123")
+        self.client.post("/questionnaire/", {"step": "16", QUESTIONS[-1][0]: "1", "action": "next"})
+        item.refresh_from_db()
+        self.assertFalse(item.is_published)
+
+    def test_excluded_pair_cannot_connect(self):
+        clean = {key: 0 for key, *_ in QUESTIONS}
+        different = clean.copy(); different["B1"] = 3
+        sender = profile("clean@test.com", clean)
+        recipient = profile("messy@test.com", different)
+        self.client.login(username="clean@test.com", password="strong-password-123")
+        self.assertEqual(self.client.post(f"/connect/{recipient.pk}/").status_code, 403)
+        self.assertFalse(ConnectionRequest.objects.filter(sender=sender, recipient=recipient).exists())
 
     def test_contact_is_not_in_discovery_and_requires_acceptance(self):
         a, b = profile("a@test.com"), profile("b@test.com")

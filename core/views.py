@@ -10,7 +10,7 @@ from django.utils import timezone
 from .constants import AREAS, GROUPS, QUESTIONS
 from .forms import LifestyleQuestionForm, PilotExerciseForm, ProfileForm, RegistrationForm
 from .models import ConnectionRequest, LifestyleAnswers, PilotEvent, PilotExercise, Profile
-from .scoring import score_profiles
+from .scoring import SCORING_VERSION, score_profiles
 
 
 def home(request):
@@ -111,13 +111,20 @@ def questionnaire(request):
             return redirect(f"{request.path}?step={step - 1}")
         if step < len(QUESTIONS):
             return redirect(f"{request.path}?step={step + 1}")
+        if not answers.is_complete:
+            missing_step = next(i for i, (key, _, _, options) in enumerate(QUESTIONS, 1)
+                                if type(answers.values.get(key)) is not int or not 0 <= answers.values[key] < len(options))
+            messages.info(request, "Hãy trả lời đủ 16 câu trước khi xuất bản hồ sơ.")
+            return redirect(f"{request.path}?step={missing_step}")
         profile.is_published = True
+        profile.questionnaire_version = SCORING_VERSION
         profile.full_clean()
         profile.save()
         PilotEvent.objects.create(user=request.user, kind="profile_published")
         messages.success(request, "Hồ sơ đã xuất bản. Bạn có thể bắt đầu khám phá match.")
         return redirect("discover")
-    return render(request, "core/questionnaire.html", {"form": form, "step": step, "total_steps": len(QUESTIONS), "question": question, "answered_count": len(answers.values)})
+    answered_count = sum(key in answers.values for key, _, _, _ in QUESTIONS)
+    return render(request, "core/questionnaire.html", {"form": form, "step": step, "total_steps": len(QUESTIONS), "question": question, "answered_count": answered_count})
 
 
 def overlap(left, right):
@@ -141,9 +148,9 @@ def find_matches(profile, area=None, rent=None):
         if area and area not in candidate.areas: continue
         if rent and not (candidate.rent_min <= rent <= candidate.rent_max): continue
         result = score_profiles(profile, candidate)
-        if not result.excluded:
+        if not result.excluded and result.score is not None:
             items.append((candidate, result))
-    return sorted(items, key=lambda item: (-item[1].score, item[0].name.lower(), item[0].pk))
+    return sorted(items, key=lambda item: (-item[1].score, item[0].name.lower(), item[0].pk))[:10]
 
 
 @login_required
@@ -163,10 +170,12 @@ def discover(request):
 @login_required
 def comparison(request, profile_id):
     mine, other = request.user.profile, get_object_or_404(Profile, pk=profile_id, is_published=True)
-    if (other.is_synthetic and not settings.DEBUG) or not overlap(mine, other) or blocked_pair(mine, other):
+    if (not mine.is_published or (other.is_synthetic and not settings.DEBUG)
+            or not overlap(mine, other) or blocked_pair(mine, other)):
         return HttpResponseForbidden("Hồ sơ này không khả dụng.")
     result = score_profiles(mine, other)
-    if result.excluded: return HttpResponseForbidden(result.exclusion_reason)
+    if result.excluded or result.score is None:
+        return HttpResponseForbidden(result.exclusion_reason or "Cần hoàn thành khảo sát mới để so sánh.")
     relation = ConnectionRequest.objects.filter(Q(sender=mine, recipient=other) | Q(sender=other, recipient=mine)).first()
     PilotEvent.objects.create(user=request.user, kind="comparison_view")
     group_items = [(GROUPS[key][0], value) for key, value in result.groups.items()]
@@ -177,7 +186,12 @@ def comparison(request, profile_id):
 def connect(request, profile_id):
     if request.method != "POST": return redirect("discover")
     sender, recipient = request.user.profile, get_object_or_404(Profile, pk=profile_id, is_published=True)
-    if sender == recipient or (recipient.is_synthetic and not settings.DEBUG) or blocked_pair(sender, recipient): return HttpResponseForbidden("Không thể gửi lời mời.")
+    if (sender == recipient or not sender.is_published or (recipient.is_synthetic and not settings.DEBUG)
+            or blocked_pair(sender, recipient) or not overlap(sender, recipient)):
+        return HttpResponseForbidden("Không thể gửi lời mời.")
+    result = score_profiles(sender, recipient)
+    if result.excluded or result.score is None:
+        return HttpResponseForbidden("Hồ sơ này không khả dụng để kết nối.")
     existing = ConnectionRequest.objects.filter(Q(sender=sender, recipient=recipient) | Q(sender=recipient, recipient=sender)).exclude(status__in=[ConnectionRequest.DECLINED, ConnectionRequest.WITHDRAWN]).first()
     if existing:
         messages.info(request, "Hai bạn đã có một lời mời hoặc kết nối đang hoạt động.")
