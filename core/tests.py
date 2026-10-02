@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from .constants import AREAS, BUDGET_CHOICES, QUESTIONS, QUESTION_WEIGHTS
 from .forms import ProfileForm
 from .models import ConnectionRequest, LifestyleAnswers, Profile
@@ -138,3 +138,15 @@ class FlowTests(TestCase):
         self.client.post(f"/connections/{connection.pk}/block/")
         connection.refresh_from_db()
         self.assertEqual(connection.status, ConnectionRequest.BLOCKED)
+
+    @override_settings(DEBUG=True)
+    def test_sample_candidate_matching_and_anonymous_rendering(self):
+        user_profile = profile("tester@test.com", areas=["Cầu Giấy", "Đống Đa"], rent_min=3000000, rent_max=5000000)
+        self.client.login(username="tester@test.com", password="strong-password-123")
+        response = self.client.get("/discover/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mẫu thử #01")
+        self.assertContains(response, "99%")
+        # Ensure private personal information is not exposed on candidate cards
+        self.assertNotContains(response, "tester@test.com")
+        self.assertNotContains(response, "candidate-card__bio")

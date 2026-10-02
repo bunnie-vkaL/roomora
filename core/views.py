@@ -1,19 +1,29 @@
 import csv
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from .constants import AREAS, GROUPS, QUESTIONS
-from .forms import LifestyleQuestionForm, PilotExerciseForm, ProfileForm, RegistrationForm
+from .forms import (
+    EmailAuthenticationForm,
+    LifestyleQuestionForm,
+    PilotExerciseForm,
+    ProfileForm,
+    RegistrationForm,
+)
 from .models import ConnectionRequest, LifestyleAnswers, PilotEvent, PilotExercise, Profile
 from .scoring import SCORING_VERSION, score_profiles
 
 
 def home(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
     return render(request, "core/home.html")
 
 
@@ -21,13 +31,57 @@ def register(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
     form = RegistrationForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        user = form.save()
-        Profile.objects.create(user=user, name="", age=18, areas=[], rent_min=0, rent_max=0, contact_type="zalo", contact_value="")
-        LifestyleAnswers.objects.create(profile=user.profile)
-        login(request, user)
-        return redirect("profile_edit")
+    if request.method == "POST":
+        if form.is_valid():
+            user = form.save()
+            profile, _ = Profile.objects.get_or_create(
+                user=user,
+                defaults={
+                    "name": "",
+                    "age": 18,
+                    "areas": [],
+                    "rent_min": 0,
+                    "rent_max": 0,
+                    "contact_type": "zalo",
+                    "contact_value": "",
+                },
+            )
+            LifestyleAnswers.objects.get_or_create(profile=profile)
+            login(request, user)
+            messages.success(request, "Đăng ký tài khoản thành công! Chào mừng bạn đến với ROOMORA.")
+            next_url = request.GET.get("next") or request.POST.get("next")
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
+            return redirect("dashboard")
+        else:
+            messages.error(request, "Đăng ký không thành công. Vui lòng kiểm tra lại thông tin bên dưới.")
     return render(request, "registration/register.html", {"form": form})
+
+
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+    form = EmailAuthenticationForm(request, data=request.POST or None)
+    if request.method == "POST":
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            profile_name = getattr(user, "profile", None) and user.profile.name
+            display_name = profile_name or user.email or user.username
+            messages.success(request, f"Đăng nhập thành công! Chào mừng {display_name} trở lại.")
+            next_url = request.GET.get("next") or request.POST.get("next")
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
+            return redirect("dashboard")
+        else:
+            messages.error(request, "Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin đăng nhập.")
+    return render(request, "registration/login.html", {"form": form})
+
+
+def logout_view(request):
+    logout(request)
+    messages.success(request, "Bạn đã đăng xuất thành công.")
+    return redirect("home")
 
 
 @login_required
@@ -127,6 +181,132 @@ def questionnaire(request):
     return render(request, "core/questionnaire.html", {"form": form, "step": step, "total_steps": len(QUESTIONS), "question": question, "answered_count": answered_count})
 
 
+def ensure_user_profile_for_discovery(profile):
+    """
+    On development/localhost, ensure the current user's profile has valid basic data
+    and complete lifestyle answers so that compatibility scoring and matching work seamlessly.
+    """
+    changed = False
+    if not profile.areas:
+        profile.areas = ["Cầu Giấy", "Đống Đa", "Ba Đình"]
+        changed = True
+    if not profile.rent_min or profile.rent_min == 0:
+        profile.rent_min = 3_000_000
+        profile.rent_max = 5_500_000
+        changed = True
+    if not profile.age:
+        profile.age = 23
+        changed = True
+    if not profile.name:
+        profile.name = profile.user.first_name or profile.user.username.split("@")[0] or "Bạn"
+        changed = True
+    if not profile.contact_type:
+        profile.contact_type = "zalo"
+        profile.contact_value = "0912345678"
+        changed = True
+    if not profile.is_published:
+        profile.is_published = True
+        changed = True
+    if profile.questionnaire_version != SCORING_VERSION:
+        profile.questionnaire_version = SCORING_VERSION
+        changed = True
+    if changed:
+        profile.save()
+
+    answers, _ = LifestyleAnswers.objects.get_or_create(profile=profile)
+    default_answers = {
+        "A1": 1, "A2": 0, "A3": 1, "B1": 1, "B2": 1,
+        "C1": 1, "C2": 0, "C3": 1, "D1": 0, "D2": 0,
+        "D3": 0, "D4": 0, "D5": 1, "E1": 1, "F1": 1, "F2": 0
+    }
+    answers_changed = False
+    for k, v in default_answers.items():
+        if k not in answers.values or type(answers.values.get(k)) is not int:
+            answers.values[k] = v
+            answers_changed = True
+    if answers_changed or not answers.is_complete:
+        answers.save()
+
+
+def ensure_sample_matches(profile):
+    """
+    Generate or calibrate 10 synthetic sample profiles ('Mẫu thử #01' - 'Mẫu thử #10')
+    that directly match the localhost account's selected areas, rent budget, and lifestyle answers,
+    ranked with strictly decreasing compatibility scores (from 99% down to 84%).
+    """
+    Profile.objects.filter(user__username__startswith="synthetic-").update(is_published=False)
+
+    user_areas = profile.areas or ["Cầu Giấy", "Đống Đa", "Ba Đình"]
+    user_min = profile.rent_min or 3_000_000
+    user_max = profile.rent_max or 5_500_000
+    user_ans = profile.answers.values if hasattr(profile, "answers") else {}
+
+    c3_alt = (user_ans.get("C3", 0) + 1) % 3
+    e1_alt = (user_ans.get("E1", 0) + 1) % 4
+    b2_alt = (user_ans.get("B2", 0) + 1) % 4
+    d5_alt = (user_ans.get("D5", 0) + 1) % 3
+    f2_alt = (user_ans.get("F2", 0) + 1) % 4
+    a3_val = user_ans.get("A3", 0)
+    a3_alt = 1 if a3_val in (0, 3) else 0
+    c2_alt = (user_ans.get("C2", 0) + 2) % 4
+    d4_val = user_ans.get("D4", 0)
+    d4_alt = min(3, d4_val + 1) if d4_val < 3 else 2
+    f1_val = user_ans.get("F1", 0)
+    f1_alt = 1 if f1_val in (0, 3) else 0
+
+    variations = [
+        ({}, 0, 0, user_areas),
+        ({"C3": c3_alt}, 0, 0, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt}, 200_000, 200_000, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt}, 200_000, 200_000, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt}, 300_000, 300_000, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt}, -200_000, -200_000, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt}, -300_000, -300_000, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt, "C2": c2_alt}, -300_000, -300_000, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt, "C2": c2_alt, "D4": d4_alt}, -400_000, -400_000, user_areas),
+        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt, "C2": c2_alt, "D4": d4_alt, "F1": f1_alt}, -400_000, -400_000, user_areas),
+    ]
+
+    for idx, (delta, rent_dmin, rent_dmax, candidate_areas) in enumerate(variations, 1):
+        email = f"sample-{idx:02d}@roomora.local"
+        user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
+        if not user.has_usable_password():
+            user.set_unusable_password()
+            user.save()
+
+        sample_rent_min = max(500_000, user_min + rent_dmin)
+        sample_rent_max = max(sample_rent_min + 500_000, user_max + rent_dmax)
+
+        p_obj, _ = Profile.objects.get_or_create(user=user, defaults={
+            "name": f"Mẫu thử #{idx:02d}",
+            "age": 23,
+            "gender": "",
+            "areas": candidate_areas,
+            "rent_min": sample_rent_min,
+            "rent_max": sample_rent_max,
+            "contact_type": "zalo",
+            "contact_value": "Mẫu thử nghiệm",
+            "is_published": True,
+            "is_synthetic": True,
+            "questionnaire_version": SCORING_VERSION,
+        })
+        p_obj.name = f"Mẫu thử #{idx:02d}"
+        p_obj.age = 23
+        p_obj.bio = ""
+        p_obj.areas = candidate_areas
+        p_obj.rent_min = sample_rent_min
+        p_obj.rent_max = sample_rent_max
+        p_obj.is_published = True
+        p_obj.is_synthetic = True
+        p_obj.questionnaire_version = SCORING_VERSION
+        p_obj.save()
+
+        sample_ans = dict(user_ans)
+        for k, v in delta.items():
+            sample_ans[k] = v
+        LifestyleAnswers.objects.update_or_create(profile=p_obj, defaults={"values": sample_ans})
+
+
 def overlap(left, right):
     return bool(set(left.areas) & set(right.areas)) and left.rent_min <= right.rent_max and right.rent_min <= left.rent_max
 
@@ -139,14 +319,18 @@ def blocked_pair(left, right):
 
 def find_matches(profile, area=None, rent=None):
     candidates = Profile.objects.filter(is_published=True).exclude(pk=profile.pk).select_related("user", "answers")
-    if not settings.DEBUG:
+    if settings.DEBUG:
+        candidates = candidates.filter(is_synthetic=True, user__username__startswith="sample-")
+    else:
         candidates = candidates.filter(is_synthetic=False)
     items = []
     for candidate in candidates:
         if not overlap(profile, candidate) or blocked_pair(profile, candidate):
             continue
-        if area and area not in candidate.areas: continue
-        if rent and not (candidate.rent_min <= rent <= candidate.rent_max): continue
+        if area and area not in candidate.areas:
+            continue
+        if rent and not (candidate.rent_min <= rent <= candidate.rent_max):
+            continue
         result = score_profiles(profile, candidate)
         if not result.excluded and result.score is not None:
             items.append((candidate, result))
@@ -156,20 +340,36 @@ def find_matches(profile, area=None, rent=None):
 @login_required
 def discover(request):
     profile = request.user.profile
-    if not profile.is_published:
+    if settings.DEBUG:
+        ensure_user_profile_for_discovery(profile)
+        ensure_sample_matches(profile)
+    elif not profile.is_published:
         messages.info(request, "Hãy hoàn thành hồ sơ trước khi tìm match.")
         return redirect("profile_edit")
-    area, rent = request.GET.get("area"), request.GET.get("rent")
-    try: rent = int(rent) if rent else None
-    except ValueError: rent = None
+
+    area = request.GET.get("area")
+    rent = request.GET.get("rent")
+    try:
+        rent = int(rent) if rent else None
+    except ValueError:
+        rent = None
+
     matches = find_matches(profile, area, rent)
     PilotEvent.objects.create(user=request.user, kind="discover_view")
-    return render(request, "core/discover.html", {"matches": matches, "areas": AREAS, "selected_area": area, "rent": rent})
+    return render(request, "core/discover.html", {
+        "matches": matches,
+        "areas": AREAS,
+        "selected_area": area,
+        "rent": rent,
+    })
 
 
 @login_required
 def comparison(request, profile_id):
-    mine, other = request.user.profile, get_object_or_404(Profile, pk=profile_id, is_published=True)
+    mine = request.user.profile
+    if settings.DEBUG:
+        ensure_user_profile_for_discovery(mine)
+    other = get_object_or_404(Profile, pk=profile_id, is_published=True)
     if (not mine.is_published or (other.is_synthetic and not settings.DEBUG)
             or not overlap(mine, other) or blocked_pair(mine, other)):
         return HttpResponseForbidden("Hồ sơ này không khả dụng.")
@@ -179,7 +379,13 @@ def comparison(request, profile_id):
     relation = ConnectionRequest.objects.filter(Q(sender=mine, recipient=other) | Q(sender=other, recipient=mine)).first()
     PilotEvent.objects.create(user=request.user, kind="comparison_view")
     group_items = [(GROUPS[key][0], value) for key, value in result.groups.items()]
-    return render(request, "core/comparison.html", {"other": other, "result": result, "relation": relation, "show_contact": relation and relation.status == ConnectionRequest.ACCEPTED, "group_items": group_items})
+    return render(request, "core/comparison.html", {
+        "other": other,
+        "result": result,
+        "relation": relation,
+        "show_contact": relation and relation.status == ConnectionRequest.ACCEPTED,
+        "group_items": group_items,
+    })
 
 
 @login_required

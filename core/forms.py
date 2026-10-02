@@ -1,30 +1,94 @@
 from django import forms
+from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
+from django.db.models import Q
 from .constants import AREAS, BUDGET_CHOICES, GENDER_CHOICES, QUESTIONS
 from .models import Profile
 
 
 class RegistrationForm(UserCreationForm):
-    email = forms.EmailField(label="Email")
+    email = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={
+            "placeholder": "Địa chỉ email của bạn",
+            "autocomplete": "email",
+            "autocapitalize": "none"
+        })
+    )
+
     class Meta:
         model = User
         fields = ("email", "password1", "password2")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "password1" in self.fields:
+            self.fields["password1"].label = "Mật khẩu"
+            self.fields["password1"].widget.attrs.update({"placeholder": "Tối thiểu 8 ký tự"})
+        if "password2" in self.fields:
+            self.fields["password2"].label = "Xác nhận mật khẩu"
+            self.fields["password2"].widget.attrs.update({"placeholder": "Nhập lại mật khẩu"})
+
     def clean_email(self):
-        email = self.cleaned_data["email"].lower()
-        if User.objects.filter(username=email).exists():
-            raise forms.ValidationError("Email này đã được sử dụng.")
+        email = self.cleaned_data.get("email", "").strip().lower()
+        if not email:
+            raise forms.ValidationError("Vui lòng nhập địa chỉ email.")
+        if User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).exists():
+            raise forms.ValidationError("Email này đã được sử dụng. Vui lòng đăng nhập hoặc sử dụng email khác.")
         return email
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.username = self.cleaned_data["email"].lower()
-        user.email = user.username
-        if commit: user.save()
+        email = self.cleaned_data["email"].strip().lower()
+        user.username = email
+        user.email = email
+        if commit:
+            user.save()
         return user
 
 
 class EmailAuthenticationForm(AuthenticationForm):
-    username = forms.EmailField(label="Email")
+    username = forms.CharField(
+        label="Email hoặc tên đăng nhập",
+        widget=forms.TextInput(attrs={
+            "autofocus": True,
+            "placeholder": "Email hoặc tên đăng nhập",
+            "autocomplete": "username",
+            "autocapitalize": "none",
+            "autocorrect": "off",
+        })
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "password" in self.fields:
+            self.fields["password"].label = "Mật khẩu"
+            self.fields["password"].widget.attrs.update({"placeholder": "Nhập mật khẩu"})
+
+    def clean(self):
+        username = self.cleaned_data.get("username")
+        password = self.cleaned_data.get("password")
+
+        if username is not None and password:
+            username = username.strip()
+            user_obj = User.objects.filter(
+                Q(username__iexact=username) | Q(email__iexact=username)
+            ).first()
+
+            auth_username = user_obj.username if user_obj else username
+            self.user_cache = authenticate(
+                self.request, username=auth_username, password=password
+            )
+            if self.user_cache is None:
+                raise forms.ValidationError(
+                    "Tên đăng nhập/email hoặc mật khẩu không chính xác. Vui lòng thử lại.",
+                    code="invalid_login",
+                )
+            else:
+                self.confirm_login_allowed(self.user_cache)
+
+        return self.cleaned_data
 
 
 class ProfileForm(forms.ModelForm):

@@ -1,1 +1,25 @@
-{% extends 'base.html' %}{% block content %}<section class="form-card"><h1>Tạo tài khoản</h1><p>Chúng tôi dùng email để bảo vệ tài khoản của bạn.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button>Tạo tài khoản</button></form><p>Đã có tài khoản? <a href="{% url 'login' %}">Đăng nhập</a></p></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Đăng ký tài khoản · ROOMORA{% endblock %}
+
+{% block content %}
+<section class="form-card">
+  <p class="eyebrow">Bắt đầu cùng Roomora</p>
+  <h1>Tạo tài khoản</h1>
+  <p class="muted">Đăng ký bằng email để bảo vệ tài khoản và tìm người ở ghép phù hợp.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="message error" style="margin-bottom: 16px;">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+    {{ form.as_p }}
+    <button type="submit" class="button gold" style="width: 100%; margin-top: 14px;">Tạo tài khoản</button>
+  </form>
+
+  <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 0.9rem;">
+    <p style="margin: 0;">Đã có tài khoản? <a href="{% url 'login' %}" style="font-weight: 600; color: #8a6a2e;">Đăng nhập ngay</a></p>
+  </div>
+</section>
+{% endblock %}

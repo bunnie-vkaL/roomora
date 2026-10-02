@@ -40,6 +40,12 @@ class Profile(models.Model):
     def completed(self):
         return hasattr(self, "answers") and self.answers.is_complete
 
+    @property
+    def rent_display(self):
+        if not self.rent_min and not self.rent_max:
+            return "Chưa cập nhật"
+        return f"{self.rent_min:,} – {self.rent_max:,} đ/tháng".replace(",", ".")
+
 
 class LifestyleAnswers(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name="answers")

@@ -1,1 +1,26 @@
-{% extends 'base.html' %}{% block title %}Đăng nhập · ROOMORA{% endblock %}{% block content %}<section class="form-card"><h1>Chào mừng trở lại</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button>Đăng nhập</button></form><p><a href="{% url 'password_reset' %}">Quên mật khẩu?</a></p><p>Chưa có tài khoản? <a href="{% url 'register' %}">Đăng ký</a></p></section>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Đăng nhập · ROOMORA{% endblock %}
+
+{% block content %}
+<section class="form-card">
+  <p class="eyebrow">Tài khoản</p>
+  <h1>Chào mừng trở lại</h1>
+  <p class="muted">Đăng nhập để xem danh sách match và quản lý hồ sơ của bạn.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="message error" style="margin-bottom: 16px;">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+    {{ form.as_p }}
+    <button type="submit" class="button gold" style="width: 100%; margin-top: 14px;">Đăng nhập</button>
+  </form>
+
+  <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 0.9rem;">
+    <p style="margin: 0;">Chưa có tài khoản? <a href="{% url 'register' %}" style="font-weight: 600; color: #8a6a2e;">Đăng ký</a></p>
+    <p style="margin: 0;"><a href="{% url 'password_reset' %}" class="muted">Quên mật khẩu?</a></p>
+  </div>
+</section>
+{% endblock %}
