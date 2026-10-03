@@ -1,3 +1,28 @@
-<section class="routine-card"><h3>{{ person.name }} · một ngày thường</h3>
-{% if living.sleep_at and living.wake_at %}<div class="routine-track" data-routine-start="{{ living.sleep_at|time:'H:i' }}" data-routine-end="{{ living.wake_at|time:'H:i' }}" role="img" aria-label="Ngủ từ {{ living.sleep_at|time:'H:i' }} đến {{ living.wake_at|time:'H:i' }}"><div class="routine-hours"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div></div><p>Ngủ: {{ living.sleep_at|time:'H:i' }} → {{ living.wake_at|time:'H:i' }} (giờ tự khai).</p>{% else %}<p>Giờ ngủ / thức dậy chưa được chia sẻ.</p>{% endif %}
-{% if living.quiet_from and living.quiet_until %}<p>Muốn yên tĩnh: {{ living.quiet_from|time:'H:i' }} → {{ living.quiet_until|time:'H:i' }}.</p>{% else %}<p class="muted">Giờ yên tĩnh cần trao đổi.</p>{% endif %}</section>
+<section class="routine-card profile-routine">
+  <p class="eyebrow">Nhu cầu & nhịp sống</p>
+  <h3>Nhịp sống thường ngày</h3>
+
+  {% if living.needs %}
+    <div class="routine-needs">
+      <span>Điều {{ person.name }} mong muốn</span>
+      <p>{{ living.needs }}</p>
+    </div>
+  {% endif %}
+
+  {% if living.sleep_at and living.wake_at %}
+    <div class="routine-times">
+      <div><span>Đi ngủ</span><strong>{{ living.sleep_at|time:'H:i' }}</strong></div>
+      <div><span>Thức dậy</span><strong>{{ living.wake_at|time:'H:i' }}</strong></div>
+    </div>
+    <div class="routine-track" data-routine-start="{{ living.sleep_at|time:'H:i' }}" data-routine-end="{{ living.wake_at|time:'H:i' }}" role="img" aria-label="Ngủ từ {{ living.sleep_at|time:'H:i' }} đến {{ living.wake_at|time:'H:i' }}">
+      <div class="routine-hours"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>
+    </div>
+  {% else %}
+    <p class="muted">Giờ ngủ và thức dậy chưa được chia sẻ.</p>
+  {% endif %}
+
+  {% if living.quiet_from and living.quiet_until %}
+    <div class="routine-quiet"><span>Giờ yên tĩnh</span><strong>{{ living.quiet_from|time:'H:i' }} – {{ living.quiet_until|time:'H:i' }}</strong></div>
+  {% endif %}
+  {% if person.is_synthetic and living.sleep_at %}<p class="routine-source">Giờ giấc ước tính từ câu trả lời lifestyle.</p>{% endif %}
+</section>

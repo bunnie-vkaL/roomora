@@ -56,7 +56,6 @@
   <h2>Kết nối</h2>
   {% if show_contact %}
     <p>Hai bạn đã đồng ý kết nối. Kênh liên hệ thử nghiệm: <strong>{{ other.contact_type|title }}: {{ other.contact_value }}</strong></p>
-    <p class="muted">Chế độ mẫu thử nghiệm trên localhost.</p>
     <form method="post" action="{% url 'connection_action' relation.pk 'block' %}">
       {% csrf_token %}
       <button class="secondary">Chặn kết nối</button>
@@ -70,7 +69,7 @@
       </form>
     {% endif %}
   {% else %}
-    <p>Đây là hồ sơ mẫu thử nghiệm độ tương thích. Bạn có thể gửi thử lời mời kết nối để kiểm tra quy trình kết nối.</p>
+    <p>Bạn có thể gửi lời mời kết nối để bắt đầu trao đổi.</p>
     <form method="post" action="{% url 'connect' other.pk %}">
       {% csrf_token %}
       <button class="button gold">Gửi lời mời kết nối mẫu</button>

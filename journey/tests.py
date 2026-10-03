@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from core.models import ConnectionRequest
+from core.models import ConnectionRequest, ImportedSampleProfile
 from core.tests import profile
 from . import forms as f, models as m, services as s
 from .costs import calculate_shared_costs, split_amount
@@ -82,6 +82,36 @@ class JourneyTests(TestCase):
         cls.b = profile("binh@test.com", name="Bình", contact_value="PRIVATE-CONTACT-BINH")
         cls.c = profile("chi@test.com", name="Chi")
 
+    @override_settings(DEBUG=True)
+    def test_recommendations_exclude_generic_test_accounts(self):
+        from .views import candidate_rows
+
+        imported = profile("sample-rm001@roomora.local", name="Nguyễn Hoài Vy", is_synthetic=True)
+        placeholder = profile("sample-01@roomora.local", name="Mẫu thử #01", is_synthetic=True)
+        fresh = profile("freshuser@roomora.local", name="freshuser")
+        shown = {row["profile"].pk for row in candidate_rows(self.a)}
+        self.assertIn(imported.pk, shown)
+        self.assertNotIn(placeholder.pk, shown)
+        self.assertNotIn(fresh.pk, shown)
+
+    def test_candidate_detail_shows_survey_and_behavior_without_actor_routine(self):
+        ImportedSampleProfile.objects.create(
+            profile=self.b, source_id="RMTEST", estimated_answers=["A1"],
+            behavior_metrics={
+                "payment_on_time_pct": 88, "payment_periods": 0,
+                "reply_within_24h_pct": 90, "show_up_score": 4.2,
+                "review_average": 4.1, "review_count": 0,
+                "verified_reports_90d": 0, "estimated_fields": ["payment_on_time_pct"],
+            },
+        )
+        self.client.force_login(self.a.user)
+        response = self.client.get(reverse("journey:candidate", args=[self.b.pk]))
+        self.assertContains(response, "16 lựa chọn lifestyle")
+        self.assertContains(response, "Hành vi mô phỏng")
+        self.assertContains(response, "Ước tính")
+        self.assertNotContains(response, "An · một ngày thường")
+        self.assertNotContains(response, "chỉ số hành vi chưa có dữ liệu")
+
     def post(self, actor, action, **data):
         self.client.force_login(actor.user)
         data.setdefault("mutation_key", str(uuid.uuid4()))
@@ -135,6 +165,48 @@ class JourneyTests(TestCase):
         self.assertTrue(m.SavedCandidate.objects.filter(owner=self.a, candidate=self.b).exists())
         self.assertEqual(self.post(self.b, "like", target=self.a.pk).status_code, 409)
         self.assertEqual(m.Conversation.objects.count(), 1)
+
+    def test_connection_hub_tracks_sent_invites_and_opens_chat_after_acceptance(self):
+        response = self.post(self.a, "like", target=self.b.pk)
+        self.assertEqual(response.json()["redirect"], f"{reverse('journey:hub')}?chat={self.b.pk}")
+        self.assertEqual(m.Conversation.objects.count(), 0)
+        self.assertEqual(m.OutboxEvent.objects.filter(recipients=[self.b.pk]).count(), 1)
+
+        self.client.force_login(self.a.user)
+        sender_hub = self.client.get(reverse("journey:hub"))
+        self.assertEqual([row["profile"].pk for row in sender_hub.context["outgoing"]], [self.b.pk])
+        self.assertEqual(sender_hub.context["incoming"], [])
+        self.assertEqual(sender_hub.context["conversations"], [])
+        self.assertContains(sender_hub, "Đã gửi lời mời")
+
+        self.client.force_login(self.b.user)
+        recipient_hub = self.client.get(reverse("journey:hub"))
+        self.assertEqual([row["profile"].pk for row in recipient_hub.context["incoming"]], [self.a.pk])
+        self.assertContains(recipient_hub, "Kết nối và mở chat")
+        response = self.post(self.b, "like", target=self.a.pk)
+        conversation = m.Conversation.objects.get()
+        self.assertEqual(response.json()["redirect"], reverse("journey:chat", args=[conversation.pk]))
+
+        for actor, other in ((self.a, self.b), (self.b, self.a)):
+            self.client.force_login(actor.user)
+            hub = self.client.get(reverse("journey:hub"))
+            self.assertEqual(hub.context["outgoing"], [])
+            self.assertEqual(hub.context["incoming"], [])
+            self.assertEqual([row["other"].pk for row in hub.context["conversations"]], [other.pk])
+            self.assertContains(hub, reverse("journey:chat", args=[conversation.pk]))
+            self.assertContains(hub, f'data-chat-person="{other.pk}"')
+
+        response = self.post(self.a, "message", conversation=conversation.pk, body="Mình muốn hỏi về giờ giấc sinh hoạt.", client_id=uuid.uuid4())
+        self.assertEqual(response.status_code, 200)
+        self.client.force_login(self.b.user)
+        self.assertContains(self.client.get(reverse("journey:hub")), "Mình muốn hỏi về giờ giấc sinh hoạt.")
+        self.assertContains(self.client.get(reverse("journey:chat", args=[conversation.pk])), "Mình muốn hỏi về giờ giấc sinh hoạt.")
+
+    def test_repeating_sent_invite_does_not_repeat_notification(self):
+        self.post(self.a, "like", target=self.b.pk)
+        self.post(self.a, "like", target=self.b.pk)
+        self.assertEqual(m.OutboxEvent.objects.count(), 1)
+        self.assertEqual(m.SwipeDecision.objects.count(), 1)
 
     def test_undo_restores_previous_decision_but_cannot_undo_a_match(self):
         s.decide(self.a, self.b, "pass")

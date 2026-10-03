@@ -1,13 +1,27 @@
 {% extends 'base.html' %}
-{% load static %}
-
+{% block title %}Bắt đầu · ROOMORA{% endblock %}
 {% block content %}
-{% if journey_enabled %}<section class="journey-welcome"><p class="eyebrow">Hành trình ở ghép</p><h2>Tìm bạn hợp nhịp. Cùng chọn nơi muốn về.</h2><div class="hero-actions"><a class="button" href="{% url 'journey:discover' %}">Quẹt tìm bạn</a><a class="button secondary" href="{% url 'journey:hub' %}">Chat & không gian chung</a><a class="button secondary" href="{% url 'journey:rooms' %}">Lưu căn riêng</a><a class="button secondary" href="{% url 'journey:resume' %}">Tiếp tục việc đang làm</a></div></section>{% endif %}
-<link rel="stylesheet" href="{% static 'dashboard.css' %}">
-<link rel="stylesheet" href="{% static 'profile_image.css' %}">
-<section class="intro"><p class="eyebrow">Không gian của bạn</p><h1>Chào {{ profile.name|default:user.email }}</h1><p>{% if profile.is_published %}Hồ sơ đã xuất bản. Xem những người có khu vực, ngân sách và lifestyle phù hợp với bạn.{% else %}Hoàn thiện hồ sơ để ROOMORA bắt đầu tìm những match phù hợp.{% endif %}</p></section>
-<section class="profile-summary">{% if profile.avatar %}<img class="profile-summary__avatar" src="{{ profile.avatar.url }}" alt="Ảnh đại diện của {{ profile.name }}">{% else %}<span class="avatar">{{ profile.name|default:user.email|slice:':1'|upper }}</span>{% endif %}<div><h3>{{ profile.name|default:user.email }}</h3><p>{% if profile.is_published %}Hồ sơ đang hiển thị · {{ profile.areas|join:', ' }}{% else %}Hồ sơ chưa xuất bản{% endif %}</p></div><div style="margin-left:auto">{% if profile.is_published %}<a class="button gold" href="{% url 'discover' %}">Khám phá match</a>{% else %}<a class="button gold" href="{% url 'profile_edit' %}">Hoàn thiện hồ sơ</a>{% endif %}</div></section>
-{% if profile.is_published %}<div class="hero-actions"><a class="button secondary" href="{% url 'pilot_exercise' %}">Làm bài thử nghiệm</a><a class="button secondary" href="{% url 'profile_edit' %}">Chỉnh sửa hồ sơ</a></div>{% endif %}
-{% if matches %}<section class="section"><div class="section-heading"><p class="eyebrow">Gợi ý dành cho bạn</p><h2>Những match có độ phù hợp cao</h2></div><div class="dashboard-matches">{% for other,result in matches %}<article class="dashboard-match"><div class="dashboard-match__cover"><span class="score">{{ result.score }}%</span></div><div class="dashboard-match__body"><p class="dashboard-match__label">Lifestyle match</p><h3>{{ other.name }}, {{ other.age }}</h3><p class="dashboard-match__area">{{ other.areas|join:', ' }}</p><div class="dashboard-match__similarities"><span>Điểm tương đồng</span><ul>{% for item in result.similarities|slice:':2' %}<li>{{ item }}</li>{% empty %}<li>Đang cập nhật so sánh lifestyle.</li>{% endfor %}</ul></div><a class="button secondary" href="{% url 'comparison' other.pk %}">Xem so sánh</a></div></article>{% endfor %}</div></section>{% endif %}
-<section class="section"><div class="section-heading"><p class="eyebrow">Lời mời kết nối</p><h2>Những người muốn trò chuyện cùng bạn</h2></div><div class="grid two">{% for item in profile.received_requests.all %}{% if item.status == 'pending' %}<article><h3>{{ item.sender.name }}</h3><p class="muted">muốn kết nối với bạn.</p><form method="post" action="{% url 'connection_action' item.pk 'accept' %}">{% csrf_token %}<button>Đồng ý</button></form><form method="post" action="{% url 'connection_action' item.pk 'decline' %}">{% csrf_token %}<button class="secondary">Từ chối</button></form></article>{% endif %}{% empty %}<article><p class="muted">Chưa có lời mời nào.</p></article>{% endfor %}</div></section>
+<section class="start-hero">
+  <p class="eyebrow">Hành trình của bạn</p>
+  <h1>Hai bước để tìm người ở ghép hợp với bạn.</h1>
+  <p>Hãy chia sẻ khu vực, ngân sách và cách bạn sinh hoạt. ROOMORA sẽ dùng những thông tin đó để gợi ý hồ sơ phù hợp.</p>
+  <div class="start-steps">
+    <article class="start-step {% if profile_ready %}is-complete{% else %}is-current{% endif %}">
+      <span>01</span><div><h2>Thông tin cá nhân</h2><p>Khu vực muốn ở, khoảng tiền thuê và cách liên hệ khi hai bên đồng ý.</p></div>
+      <a href="{% url 'profile_edit' %}">{% if profile_ready %}Chỉnh sửa{% else %}Điền thông tin{% endif %} →</a>
+    </article>
+    <article class="start-step {% if profile_ready %}is-current{% endif %}">
+      <span>02</span><div><h2>Lifestyle</h2><p>16 câu hỏi về thói quen sống chung để giải thích vì sao một hồ sơ được gợi ý.</p></div>
+      {% if profile_ready %}<a href="{% url 'questionnaire' %}">Trả lời câu hỏi →</a>{% else %}<span class="start-pending">Sau bước 1</span>{% endif %}
+    </article>
+    <article class="start-step">
+      <span>03</span><div><h2>Xem gợi ý</h2><p>So sánh điểm hợp, điều cần hỏi thêm và chỉ kết nối khi bạn sẵn sàng.</p></div>
+      <span class="start-pending">Sau bước 2</span>
+    </article>
+  </div>
+  <div class="start-actions">
+    <a class="button gold" href="{% if profile_ready %}{% url 'questionnaire' %}{% else %}{% url 'profile_edit' %}{% endif %}">{% if profile_ready %}Tiếp tục lifestyle{% else %}Bắt đầu hồ sơ{% endif %}</a>
+    <a class="text-link" href="{% url 'about' %}">Tìm hiểu ROOMORA →</a>
+  </div>
+</section>
 {% endblock %}

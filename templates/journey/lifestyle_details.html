@@ -1,0 +1,41 @@
+<section class="lifestyle-details" aria-labelledby="lifestyle-title">
+  <div class="lifestyle-heading">
+    <div>
+      <p class="eyebrow">Góc nhìn gần hơn</p>
+      <h2 id="lifestyle-title">16 lựa chọn lifestyle</h2>
+      <p>Xem cách {{ card.profile.name }} sinh hoạt, chia sẻ không gian và xử lý những việc thường ngày.</p>
+    </div>
+    <span class="lifestyle-count">6 nhóm · 16 lựa chọn</span>
+  </div>
+  <div class="lifestyle-group-grid">
+    {% for section in card.lifestyle_sections %}
+      <article class="lifestyle-group">
+        <div class="lifestyle-group-head"><span>{{ forloop.counter|stringformat:'02d' }}</span><h3>{{ section.title }}</h3></div>
+        <dl>
+          {% for choice in section.choices %}
+            <div>
+              <dt>{{ choice.title }}</dt>
+              <dd>{{ choice.answer }}{% if choice.estimated %}<small class="estimate-pill">Ước tính</small>{% endif %}</dd>
+            </div>
+          {% endfor %}
+        </dl>
+      </article>
+    {% endfor %}
+  </div>
+
+  {% if card.behavior %}
+    <div class="behavior-details">
+      <div class="behavior-heading">
+        <div><p class="eyebrow">Chỉ số tham khảo</p><h2>Hành vi mô phỏng</h2></div>
+        <p>Dữ liệu giả lập để xem trước hồ sơ; chưa dùng để tính điểm hợp.</p>
+      </div>
+      <div class="behavior-grid">
+        <article><span>{% if card.behavior.payment_periods %}Thanh toán đúng hẹn{% else %}Đúng hẹn tiền dự kiến{% endif %}</span><strong>{{ card.behavior.payment_on_time_pct }}<small>%</small></strong><p>{{ card.behavior.payment_periods }} kỳ ghi nhận</p></article>
+        <article><span>Phản hồi trong 24 giờ</span><strong>{{ card.behavior.reply_within_24h_pct }}<small>%</small></strong><p>Mức phản hồi mô phỏng</p></article>
+        <article><span>Đúng hẹn gặp mặt</span><strong>{{ card.behavior.show_up_score }}<small>/5</small></strong><p>Điểm show-up</p></article>
+        <article><span>{% if card.behavior.review_count %}Đánh giá cộng đồng{% else %}Đánh giá dự kiến{% endif %}</span><strong>{{ card.behavior.review_average }}<small>/5</small></strong><p>{{ card.behavior.review_count }} đánh giá</p></article>
+      </div>
+      <p class="behavior-reports">Báo cáo đã xác minh trong 90 ngày: <strong>{{ card.behavior.verified_reports_90d }}</strong></p>
+    </div>
+  {% endif %}
+</section>

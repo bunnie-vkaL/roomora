@@ -1,5 +1,52 @@
-{% extends 'journey/base.html' %}{% block journey_content %}<section class="journey-heading"><div><p class="eyebrow">Kết nối & cùng tìm</p><h1>Từ một lời chào<br>đến nơi muốn về.</h1><p>Đồng ý kết nối, đồng ý cùng tìm và xác nhận chọn nhà là những bước riêng.</p></div><a class="button" href="{% url 'journey:discover' %}">Tìm người hợp nhịp</a></section>
-<section class="section"><h2>Người muốn kết nối với bạn</h2><div class="grid three">{% for card in incoming %}{% include 'journey/card.html' %}{% empty %}<section class="empty"><p>Chưa có lượt quan tâm mới. Hồ sơ đầy đủ giúp người phù hợp hiểu bạn hơn.</p><a href="{% url 'journey:preferences' %}" class="detail-link">Bổ sung nhu cầu →</a></section>{% endfor %}</div></section>
-<section class="section"><h2>Cuộc trò chuyện đã match</h2><div class="grid two">{% for row in conversations %}<article><p class="eyebrow">Cùng muốn tìm hiểu</p><h3>{{ row.other.name }}</h3><a class="button" href="{% url 'journey:chat' row.conversation.pk %}">Mở chat</a></article>{% empty %}<section class="empty"><p>Hai bên cùng chọn Muốn kết nối sẽ mở chat tại đây.</p></section>{% endfor %}</div></section>
+{% extends 'journey/base.html' %}
+{% block journey_content %}
+<section class="journey-heading">
+  <div><p class="eyebrow">Kết nối của bạn</p><h1>Những cuộc trò chuyện<br>đang chờ bắt đầu.</h1><p>Gửi tin nhắn ngay sau khi chọn một người. Hai bạn có thể trao đổi trước khi đồng ý kết nối.</p></div>
+  <a class="button" href="{% url 'journey:discover' %}">Xem gợi ý</a>
+</section>
+<nav class="hub-shortcuts" aria-label="Công cụ khác"><a href="{% url 'journey:notifications' %}">Thông báo →</a><a href="{% url 'journey:rooms' %}">Căn đã lưu →</a><a href="{% url 'journey:preferences' %}">Nhu cầu của tôi →</a></nav>
+
+<section class="section" aria-labelledby="connected-heading">
+  <div class="hub-section-heading"><div><p class="eyebrow">Cùng quan tâm</p><h2 id="connected-heading">Bạn đã kết nối</h2><p>Hai bạn đều chọn kết nối. Hộp chat đã mở để trao đổi nhu cầu ở ghép.</p></div><span class="hub-count">{{ conversations|length }}</span></div>
+  <div class="grid two hub-grid">{% for row in conversations %}
+    <article class="hub-person hub-person-connected">
+      <div class="hub-person-top"><span class="avatar" aria-hidden="true">{{ row.other.name|slice:':1'|upper }}</span><span class="hub-status hub-status-connected">Đã kết nối</span></div>
+      <h3>{{ row.other.name }}</h3>
+      {% if row.last_message %}<p class="hub-last-message"><strong>{% if row.last_message.sender_id == request.actor.pk %}Bạn{% else %}{{ row.last_message.sender.name }}{% endif %}:</strong> {{ row.last_message.body|truncatechars:120 }}</p><time class="muted" datetime="{{ row.last_message.created_at|date:'c' }}">{{ row.last_message.created_at|date:'d/m/Y H:i' }}</time>
+      {% else %}<p class="muted">Chưa có tin nhắn. Hãy gửi lời chào đầu tiên.</p>{% endif %}
+      <div class="hub-chat-actions"><button type="button" data-chat-person="{{ row.other.pk }}" data-chat-name="{{ row.other.name }}" data-chat-url="{% url 'journey:pair-messages' row.other.pk %}">Nhắn tin</button><a class="button secondary" href="{% url 'journey:chat' row.conversation.pk %}">Xem toàn bộ chat</a></div>
+    </article>
+  {% empty %}<section class="empty"><p>Chưa có kết nối hai chiều. Bạn vẫn có thể nhắn tin với người đang chờ phản hồi ở bên dưới.</p></section>{% endfor %}</div>
+</section>
+
+<section class="section" aria-labelledby="outgoing-heading">
+  <div class="hub-section-heading"><div><p class="eyebrow">Lượt bạn đã chọn</p><h2 id="outgoing-heading">Đang chờ phản hồi</h2><p>Những người bạn đã bấm “Muốn kết nối” trong trang gợi ý.</p></div><span class="hub-count">{{ outgoing|length }}</span></div>
+  <div class="grid two hub-grid">{% for row in outgoing %}
+    <article class="hub-person"><div class="hub-person-top"><span class="avatar" aria-hidden="true">{{ row.profile.name|slice:':1'|upper }}</span><span class="hub-status">Đã gửi lời mời</span></div><h3>{{ row.profile.name }}</h3><p class="muted">{{ row.profile.areas|join:', ' }} · {{ row.profile.rent_display }}</p><time class="muted" datetime="{{ row.sent_at|date:'c' }}">Đã chọn ngày {{ row.sent_at|date:'d/m/Y' }}</time><div class="hub-chat-actions"><button type="button" data-chat-person="{{ row.profile.pk }}" data-chat-name="{{ row.profile.name }}" data-chat-url="{% url 'journey:pair-messages' row.profile.pk %}">Nhắn tin ngay</button></div></article>
+  {% empty %}<section class="empty"><p>Bạn chưa gửi lời mời nào đang chờ.</p><a href="{% url 'journey:discover' %}" class="detail-link">Xem người phù hợp →</a></section>{% endfor %}</div>
+</section>
+
+<section class="section" aria-labelledby="incoming-heading">
+  <div class="hub-section-heading"><div><p class="eyebrow">Lượt quan tâm mới</p><h2 id="incoming-heading">Người muốn kết nối với bạn</h2><p>Bạn có thể trả lời tin nhắn trước, rồi quyết định có đồng ý kết nối hay không.</p></div><span class="hub-count">{{ incoming|length }}</span></div>
+  <div class="grid two hub-grid">{% for row in incoming %}
+    <article class="hub-person"><div class="hub-person-top"><span class="avatar" aria-hidden="true">{{ row.profile.name|slice:':1'|upper }}</span><span class="hub-status">Muốn kết nối</span></div><h3>{{ row.profile.name }}</h3><p class="muted">{{ row.profile.areas|join:', ' }} · {{ row.profile.rent_display }}</p><div class="hub-chat-actions"><button type="button" data-chat-person="{{ row.profile.pk }}" data-chat-name="{{ row.profile.name }}" data-chat-url="{% url 'journey:pair-messages' row.profile.pk %}">Trả lời tin nhắn</button><form method="post" action="{% url 'journey:action' 'like' %}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ row.profile.pk }}"><button class="secondary">Kết nối và mở chat</button></form><a class="button secondary" href="{% url 'journey:candidate' row.profile.pk %}">Xem hồ sơ</a></div></article>
+  {% empty %}<section class="empty"><p>Chưa có người gửi lời mời. Hồ sơ đầy đủ giúp người phù hợp hiểu bạn hơn.</p><a href="{% url 'journey:preferences' %}" class="detail-link">Bổ sung nhu cầu →</a></section>{% endfor %}</div>
+</section>
+
 <section class="section"><h2>Lời mời cùng tìm nhà</h2><div class="grid two">{% for invite in invites %}<article><h3>{{ invite.title }}</h3><p>{{ invite.inviter.name }} muốn mở không gian cùng tìm với bạn.</p><form method="post" action="{% url 'journey:action' 'workspace-response' %}">{% include 'journey/fields.html' %}<input type="hidden" name="workspace" value="{{ invite.pk }}"><button name="accepted" value="1">Đồng ý cùng tìm</button><button class="secondary" name="accepted" value="0">Chưa cùng tìm</button></form></article>{% empty %}<section class="empty"><p>Chưa có lời mời đang chờ.</p></section>{% endfor %}</div></section>
-<section class="section"><h2>Không gian tìm nhà chung</h2><div class="grid two">{% for workspace in workspaces %}<article><p class="eyebrow">{{ workspace.get_status_display }}</p><h3>{{ workspace.title }}</h3><a class="button" href="{% url 'journey:workspace' workspace.pk %}">Vào không gian chung</a></article>{% empty %}<section class="empty"><p>Từ chat, đề xuất cùng tìm nhà. Không gian chung mở khi đối phương đồng ý.</p><a class="button secondary" href="{% url 'journey:rooms' %}">Lưu căn riêng trước</a></section>{% endfor %}</div></section>{% endblock %}
+<section class="section"><h2>Không gian tìm nhà chung</h2><div class="grid two">{% for workspace in workspaces %}<article><p class="eyebrow">{{ workspace.get_status_display }}</p><h3>{{ workspace.title }}</h3><a class="button" href="{% url 'journey:workspace' workspace.pk %}">Vào không gian chung</a></article>{% empty %}<section class="empty"><p>Từ chat, đề xuất cùng tìm nhà. Không gian chung mở khi đối phương đồng ý.</p><a class="button secondary" href="{% url 'journey:rooms' %}">Lưu căn riêng trước</a></section>{% endfor %}</div></section>
+<aside class="connection-widget" data-connection-widget aria-label="Hộp tin nhắn">
+  <button type="button" class="connection-widget-toggle" data-chat-toggle aria-expanded="false">Tin nhắn <span aria-hidden="true">✉</span></button>
+  <div class="connection-widget-panel" data-chat-panel hidden>
+    <header class="connection-widget-header"><div><small>ROOMORA · TIN NHẮN</small><strong data-chat-heading>Chọn người để trò chuyện</strong><span data-chat-state>Nhắn tin trước khi kết nối</span></div><button type="button" class="connection-widget-close" data-chat-close aria-label="Đóng hộp chat">×</button></header>
+    <div class="connection-widget-log" data-chat-widget-log role="log" aria-live="polite"><p class="muted">Chọn “Nhắn tin” ở một hồ sơ để bắt đầu.</p></div>
+    <form method="post" action="{% url 'journey:action' 'message' %}" data-chat-widget-form>
+      {% include 'journey/fields.html' %}<input type="hidden" name="target" value=""><input type="hidden" name="client_id" value="{{ widget_client_id }}">
+      <label class="sr-only" for="widget-message">Nội dung tin nhắn</label><textarea id="widget-message" name="body" rows="2" maxlength="4000" placeholder="Nhập tin nhắn…" required disabled></textarea>
+      <button type="submit" aria-label="Gửi tin nhắn" disabled>➤</button>
+    </form>
+    <p class="connection-widget-note">Nhắn tin không tự động đồng ý kết nối.</p>
+    <p class="connection-widget-error" data-chat-widget-error role="status"></p>
+  </div>
+</aside>
+{% endblock %}

@@ -1,9 +1,12 @@
+from datetime import date, datetime, time
+
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from .constants import AREAS, BUDGET_CHOICES, QUESTIONS, QUESTION_WEIGHTS
 from .forms import ProfileForm
 from .models import ConnectionRequest, LifestyleAnswers, Profile
 from .scoring import _calibrate, _similarity, score_profiles
+from .management.commands.import_sample_profiles import parse_row, simulated_living
 
 
 def profile(email, values=None, **extra):
@@ -28,6 +31,20 @@ class ScoringTests(TestCase):
     def test_identical_profiles_score_99_with_budget_bonus(self):
         a, b = profile("a@test.com"), profile("b@test.com")
         self.assertEqual(score_profiles(a, b).score, 99)
+
+    def test_match_reasons_show_answers_instead_of_survey_questions(self):
+        base = {key: 0 for key, *_ in QUESTIONS}
+        changed = base.copy()
+        changed["D4"] = 2
+        a = profile("answers-a@test.com", base)
+        b = profile("answers-b@test.com", changed)
+        result = score_profiles(a, b)
+        self.assertTrue(any("cả hai chọn “Rất sạch, gọn mỗi ngày”" in reason
+                            for reason in result.similarities))
+        self.assertTrue(any("Tiếng ồn: bạn “Rất yên tĩnh”, người ấy “Hơi ồn”" in reason
+                            for reason in result.differences))
+        self.assertFalse(any(question in reason for reason in result.similarities + result.differences
+                             for _, _, question, _ in QUESTIONS))
 
     def test_scoring_is_symmetric(self):
         left = {key: 0 for key, *_ in QUESTIONS}; right = left.copy()
@@ -61,7 +78,65 @@ class ScoringTests(TestCase):
         self.assertIsNone(score_profiles(old, new).score)
 
 
+class SampleLivingTests(TestCase):
+    def test_import_fills_missing_survey_and_behavior_without_changing_source_cells(self):
+        headers = [f"Cột {index}" for index in range(48)]
+        row = [None] * 48
+        row[0], row[1], row[2] = "RM001", "Nguyễn Hoài Vy", "Nữ"
+        row[3], row[4] = datetime(2003, 1, 1), 23
+        row[16], row[17], row[19], row[21] = 3, 3.5, datetime(2026, 11, 1), 3
+        row[39], row[42], row[44] = 0, 0, 0
+        item = parse_row(row, headers, 2)
+        self.assertEqual(len(item["answers"]), 16)
+        self.assertEqual(len(item["estimated_answers"]), 16)
+        self.assertIsNone(item["source_data"][headers[22]])
+        self.assertEqual(len(item["behavior_metrics"]["estimated_fields"]), 4)
+        self.assertGreater(item["behavior_metrics"]["payment_on_time_pct"], 0)
+
+    def test_simulated_routine_follows_lifestyle_and_is_repeatable(self):
+        item = {
+            "source_id": "RM001", "answers": {"A1": 0, "B1": 0, "C1": 0, "A3": 3, "D4": 0},
+            "move_in_from": date(2026, 11, 1), "rent_max": 3_500_000, "min_stay_months": 3,
+        }
+        living = simulated_living(item)
+        self.assertEqual(living, simulated_living(item))
+        self.assertEqual(living["sleep_at"], time(22))
+        self.assertEqual(living["wake_at"], time(6))
+        self.assertEqual(living["quiet_from"], time(20))
+        self.assertIn("Cần góc làm việc tại nhà", living["needs"])
+        self.assertIn("3 tháng", living["needs"])
+        self.assertLessEqual(len(living["needs"]), 500)
+
+
 class FlowTests(TestCase):
+    def test_dashboard_guides_new_users_and_sends_completed_users_to_one_recommendation_page(self):
+        newcomer = profile("new@test.com", values={}, is_published=False, areas=[], rent_min=0, rent_max=0, contact_value="")
+        self.client.force_login(newcomer.user)
+        response = self.client.get("/dashboard/")
+        self.assertContains(response, "Bắt đầu hồ sơ")
+        self.assertContains(response, "Lifestyle")
+        newcomer.areas = ["Cầu Giấy"]
+        newcomer.rent_min = 3_000_000
+        newcomer.rent_max = 5_000_000
+        newcomer.contact_value = "zalo"
+        newcomer.save()
+        newcomer.answers.values = {key: 0 for key, *_ in QUESTIONS}
+        newcomer.answers.save()
+        newcomer.is_published = True
+        newcomer.save()
+        self.assertRedirects(self.client.get("/dashboard/"), "/together/discover/")
+
+    def test_about_shows_area_recommendations_only_for_selected_profile_area(self):
+        self.assertContains(self.client.get("/about/"), "Gợi ý theo khu vực")
+        actor = profile("area-a@test.com")
+        other = profile("area-b@test.com")
+        self.client.force_login(actor.user)
+        response = self.client.get("/about/?area=C%E1%BA%A7u%20Gi%E1%BA%A5y")
+        self.assertContains(response, other.name)
+        response = self.client.get("/about/?area=Ba%20%C4%90%C3%ACnh")
+        self.assertNotContains(response, other.name)
+        self.assertContains(response, "Cập nhật khu vực")
+
     def test_profile_form_offers_gender_other_area_and_budget_bounds(self):
         form = ProfileForm()
         self.assertEqual(list(form.fields["gender"].choices)[1:], [("male", "Nam"), ("female", "Nữ")])
@@ -140,12 +215,17 @@ class FlowTests(TestCase):
         self.assertEqual(connection.status, ConnectionRequest.BLOCKED)
 
     @override_settings(DEBUG=True)
-    def test_sample_candidate_matching_and_anonymous_rendering(self):
+    def test_recommendations_show_person_names_without_placeholder_profiles(self):
         user_profile = profile("tester@test.com", areas=["Cầu Giấy", "Đống Đa"], rent_min=3000000, rent_max=5000000)
+        named = profile("sample-rm001@roomora.local", name="Nguyễn Hoài Vy", is_synthetic=True)
+        profile("sample-01@roomora.local", name="Mẫu thử #01", is_synthetic=True)
+        profile("freshuser@roomora.local", name="freshuser")
         self.client.login(username="tester@test.com", password="strong-password-123")
         response = self.client.get("/discover/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Mẫu thử #01")
+        self.assertContains(response, named.name)
+        self.assertNotContains(response, "Mẫu thử #01")
+        self.assertNotContains(response, "freshuser")
         self.assertContains(response, "99%")
         # Ensure private personal information is not exposed on candidate cards
         self.assertNotContains(response, "tester@test.com")

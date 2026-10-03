@@ -43,6 +43,17 @@ def is_blocked(a, b):
     return m.UserBlock.objects.filter(query).exists() or ConnectionRequest.objects.filter(legacy, status="blocked").exists()
 
 
+def blocked_profile_ids(actor):
+    """All profiles blocked in either direction, for list views."""
+    ids = set()
+    for actor_id, target_id in m.UserBlock.objects.filter(Q(actor=actor) | Q(target=actor)).values_list("actor_id", "target_id"):
+        ids.add(target_id if actor_id == actor.pk else actor_id)
+    for sender_id, recipient_id in ConnectionRequest.objects.filter(
+            Q(sender=actor) | Q(recipient=actor), status="blocked").values_list("sender_id", "recipient_id"):
+        ids.add(recipient_id if sender_id == actor.pk else sender_id)
+    return ids
+
+
 def eligible_target(actor, target):
     from core.views import overlap
     if (actor.pk == target.pk or not actor.is_published or not target.is_published
@@ -67,14 +78,53 @@ def connection_for(actor, connection_id, lock=False):
     return connection
 
 
-def conversation_for(actor, conversation_id, lock=False):
+def conversation_for(actor, conversation_id, lock=False, allow_pending=False):
     conversation = m.Conversation.objects.select_related("connection__low", "connection__high").filter(pk=conversation_id).first()
     if not conversation:
         raise DomainError("Cuộc trò chuyện không khả dụng.", 404)
-    connection = connection_for(actor, conversation.connection_id, lock)
+    connection = conversation.connection
+    if lock:
+        connection = m.Connection.objects.select_for_update().get(pk=connection.pk)
+    if actor.pk not in (connection.low_id, connection.high_id) or is_blocked(connection.low, connection.high):
+        raise DomainError("Cuộc trò chuyện không khả dụng.", 403)
+    if not connection.active:
+        if not allow_pending or not m.SwipeDecision.objects.filter(
+                (Q(actor=connection.low, target=connection.high) |
+                 Q(actor=connection.high, target=connection.low)), choice=m.SwipeDecision.LIKE).exists():
+            raise DomainError("Cuộc trò chuyện chưa được mở hoặc đã kết thúc.", 403)
     if connection.generation != conversation.generation:
         raise DomainError("Cuộc trò chuyện đã kết thúc.", 403)
     return conversation
+
+
+def pair_chat_for(actor, target, lock=False):
+    if actor.pk == target.pk or is_blocked(actor, target):
+        raise DomainError("Không thể nhắn tin cho hồ sơ này.", 403)
+    from django.conf import settings
+    if (actor.is_synthetic or target.is_synthetic) and not settings.DEBUG:
+        raise DomainError("Hồ sơ mẫu chỉ dùng trong môi trường thử nghiệm.", 403)
+    query = m.Connection.objects.select_related("low", "high")
+    if lock:
+        query = query.select_for_update()
+    connection = query.filter(pair_query(actor, target)).first()
+    if not connection:
+        raise DomainError("Hãy chọn Muốn kết nối trước khi nhắn tin.", 403)
+    if not connection.active and not m.SwipeDecision.objects.filter(
+            (Q(actor=actor, target=target) | Q(actor=target, target=actor)),
+            choice=m.SwipeDecision.LIKE).exists():
+        raise DomainError("Lời mời kết nối đã kết thúc.", 403)
+    conversation = connection.conversations.filter(generation=connection.generation).first()
+    return connection, conversation
+
+
+def ensure_current_conversation(connection):
+    conversation = connection.conversations.filter(generation=connection.generation).first()
+    if conversation:
+        return conversation
+    if connection.generation == 0:
+        connection.generation = 1
+        connection.save(update_fields=["generation", "updated_at"])
+    return m.Conversation.objects.create(connection=connection, generation=connection.generation)
 
 
 def workspace_for(actor, workspace_id, lock=False):
@@ -181,16 +231,23 @@ def decide(actor, target, choice):
     if connection.active:
         raise DomainError("Hai bạn đã kết nối. Dùng hủy kết nối nếu muốn kết thúc.", 409)
     old = m.SwipeDecision.objects.filter(actor=actor, target=target).first()
-    if not old or old.choice != choice:
+    reciprocal = m.SwipeDecision.objects.filter(actor=target, target=actor, choice=m.SwipeDecision.LIKE).exists()
+    had_pending_like = reciprocal or (old and old.choice == m.SwipeDecision.LIKE)
+    changed = not old or old.choice != choice
+    if changed:
         m.DecisionEvent.objects.create(actor=actor, target=target, choice=choice, previous_choice=old.choice if old else "")
         m.SwipeDecision.objects.update_or_create(actor=actor, target=target, defaults={"choice": choice})
-    if choice == "like" and m.SwipeDecision.objects.filter(actor=target, target=actor, choice="like").exists():
+    if choice == "like" and reciprocal:
         connection.active = True
-        connection.generation += 1
-        connection.save()
-        conversation = m.Conversation.objects.create(connection=connection, generation=connection.generation)
+        connection.save(update_fields=["active", "updated_at"])
+        conversation = ensure_current_conversation(connection)
         emit([actor.pk, target.pk], "Hai bạn đã cùng muốn kết nối", reverse("journey:chat", args=[conversation.pk]))
         return conversation
+    if choice == "like" and changed:
+        if not had_pending_like and connection.conversations.filter(generation=connection.generation).exists():
+            connection.generation += 1
+            connection.save(update_fields=["generation", "updated_at"])
+        emit([target.pk], f"{actor.name} muốn kết nối với bạn", reverse("journey:hub"))
     return None
 
 
@@ -241,8 +298,8 @@ def block_profile(actor, target):
 
 
 @transaction.atomic
-def send_message(actor, conversation_id, body, client_id):
-    conversation = conversation_for(actor, conversation_id, lock=True)
+def send_message(actor, conversation_id, body, client_id, allow_pending=False):
+    conversation = conversation_for(actor, conversation_id, lock=True, allow_pending=allow_pending)
     body = body.strip()
     if not body or len(body) > 4000:
         raise DomainError("Tin nhắn cần có nội dung, tối đa 4.000 ký tự.")
@@ -254,8 +311,17 @@ def send_message(actor, conversation_id, body, client_id):
     if not created and message.body != body:
         raise DomainError("Mã tin nhắn đã dùng cho nội dung khác.", 409)
     if created:
-        emit([conversation.connection.other(actor).pk], "Có tin nhắn mới trong kết nối của bạn", reverse("journey:chat", args=[conversation.pk]))
+        path = reverse("journey:chat", args=[conversation.pk]) if conversation.connection.active else f"{reverse('journey:hub')}?chat={actor.pk}"
+        emit([conversation.connection.other(actor).pk], "Có tin nhắn mới trong kết nối của bạn", path)
     return message
+
+
+@transaction.atomic
+def send_pair_message(actor, target, body, client_id):
+    connection, conversation = pair_chat_for(actor, target, lock=True)
+    if conversation is None:
+        conversation = ensure_current_conversation(connection)
+    return send_message(actor, conversation.pk, body, client_id, allow_pending=True)
 
 
 @transaction.atomic

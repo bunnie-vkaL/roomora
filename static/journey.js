@@ -50,8 +50,9 @@
           announce(saved.value === "0" ? "Đã lưu riêng, chưa gửi lượt quan tâm." : "Đã bỏ lưu.");
         } else {
           if (result.redirect.includes("/chat/")) { location.assign(result.redirect); return; }
+          if (form.dataset.deckAction === "like") { location.assign(result.redirect); return; }
           index += 1; show();
-          announce(form.dataset.deckAction === "like" ? "Đã muốn kết nối. Chat mở khi cả hai cùng quan tâm." : "Đã bỏ qua. Có thể hoàn tác lượt cuối chưa match.");
+          announce("Đã bỏ qua. Có thể hoàn tác lượt cuối chưa match.");
           const next = document.querySelector("[data-next-candidates]");
           if (next) { const url = new URL(next.href); url.searchParams.delete("cursor"); next.href = url; }
           cards[index]?.querySelector("button")?.focus({preventScroll: true});
