@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<nav class="journey-tabs" aria-label="Hành trình ở ghép">
+  <a href="{% url 'journey:discover' %}">Tìm bạn</a><a href="{% url 'journey:saved' %}">Bàn chọn</a><a href="{% url 'journey:hub' %}">Kết nối & cùng tìm</a><a href="{% url 'journey:rooms' %}">Căn lưu riêng</a><a href="{% url 'journey:preferences' %}">Nhu cầu & nhịp sống</a><a href="{% url 'journey:resume' %}">Tiếp tục việc đang làm</a>
+</nav>
+<div id="journey-status" class="journey-status" role="status" aria-live="polite"></div>
+{% block journey_content %}{% endblock %}
+{% endblock %}

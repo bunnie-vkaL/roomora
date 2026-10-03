@@ -1,0 +1,9 @@
+{% extends 'journey/base.html' %}{% block journey_content %}<section class="intro"><p class="eyebrow">Cùng chọn nơi muốn về</p><h1>Căn nào phù hợp<br>với nhu cầu của từng người?</h1><p>Khoản chưa biết không được tính thành 0. Tổng chưa đầy đủ không dùng để xếp căn “rẻ hơn”.</p></section><div class="comparison-grid">{% for option in options %}<section class="panel"><h2>{{ option.room.title }}</h2><p>{{ option.room.area|default:'Khu vực cần kiểm tra' }}</p><p>{{ option.room.address|default:'Địa chỉ chưa rõ' }}</p>
+{% with image=option.room.images.first %}{% if image %}<img class="comparison-photo" src="{% url 'journey:image' image.pk %}" alt="{{ image.caption|default:option.room.title }}">{% endif %}{% endwith %}
+{% include 'journey/cost_summary.html' with calculation=option.calculation %}
+<h3>Nhu cầu của từng người để đối chiếu</h3>
+{% for member in option.calculation.members %}<article class="context-note"><strong>{{ member.profile.name }}</strong>
+<p>Khu vực mong muốn: {{ member.profile.areas|join:', ' }}.</p>
+<p>{{ member.living.needs|default:'Chưa ghi nhu cầu cụ thể; cần hỏi thêm.' }}</p>
+<p>Thời gian chuyển: {{ member.living.move_in_from|date:'d/m/Y'|default:'Chưa rõ' }} – {{ member.living.move_in_until|date:'d/m/Y'|default:'Chưa rõ' }}.</p>
+</article>{% endfor %}<h3>Ý kiến từng người</h3>{% include 'journey/opinions.html' with rows=option.member_opinions %}<p>{{ option.room.notes }}</p><a class="button" href="{% url 'journey:room' option.room.pk %}">Xem căn và điều còn cần hỏi</a></section>{% endfor %}</div>{% endblock %}

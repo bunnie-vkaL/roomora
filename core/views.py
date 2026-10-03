@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -312,6 +313,9 @@ def overlap(left, right):
 
 
 def blocked_pair(left, right):
+    from journey.models import UserBlock
+    if UserBlock.objects.filter(Q(actor=left, target=right) | Q(actor=right, target=left)).exists():
+        return True
     return ConnectionRequest.objects.filter(
         Q(sender=left, recipient=right) | Q(sender=right, recipient=left), status=ConnectionRequest.BLOCKED
     ).exists()
@@ -422,7 +426,11 @@ def connection_action(request, request_id, action):
     if item.status != item.PENDING and action != "block":
         messages.info(request, "Lời mời này đã được xử lý.")
     else:
-        item.status = mapping[action]; item.save()
+        with transaction.atomic():
+            if action == "block":
+                from journey.services import block_profile
+                block_profile(mine, item.recipient if item.sender_id == mine.pk else item.sender)
+            item.status = mapping[action]; item.save()
         PilotEvent.objects.create(user=request.user, kind=f"connection_{action}")
         messages.success(request, "Đã cập nhật kết nối.")
     return redirect("dashboard")

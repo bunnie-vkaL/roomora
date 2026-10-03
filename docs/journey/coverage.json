@@ -1,0 +1,596 @@
+{
+  "schema_version": 1,
+  "source_registry": "docs/proposals/roommate-functions-2026-10-03/feature-register.json",
+  "features": [
+    {
+      "id": "R01",
+      "source_number": 1,
+      "title": "Quẹt phải để muốn kết nối, quẹt trái để bỏ qua.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/views.py",
+        "static/journey.js",
+        "templates/journey/discover.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_signed_cursor_has_no_duplicates_and_rejects_changed_deck",
+      "behavior_evidence": "UI 1,9: buttons/Enter and real left/right drag"
+    },
+    {
+      "id": "R02",
+      "source_number": 2,
+      "title": "Hai bên cùng quan tâm thì match và mở chat.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "journey/models.py"
+      ],
+      "test": "journey.tests.JourneyTests.test_saved_is_independent_of_decision_and_mutual_match",
+      "behavior_evidence": "UI 1: second Like opens chat"
+    },
+    {
+      "id": "R03",
+      "source_number": 3,
+      "title": "Hoàn tác lượt quẹt nhầm.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "templates/journey/discover.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_undo_restores_previous_decision_but_cannot_undo_a_match",
+      "behavior_evidence": "UI 9: undo both gestures"
+    },
+    {
+      "id": "R04",
+      "source_number": 4,
+      "title": "Lưu người để xem sau, độc lập với Like.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/saved.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_saved_is_independent_of_decision_and_mutual_match",
+      "behavior_evidence": "UI 1: save before Like"
+    },
+    {
+      "id": "R05",
+      "source_number": 5,
+      "title": "Xem danh sách người đã muốn kết nối với mình.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/views.py",
+        "templates/journey/hub.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_saved_is_independent_of_decision_and_mutual_match",
+      "behavior_evidence": "UI 1: receiver sees incoming Like"
+    },
+    {
+      "id": "R06",
+      "source_number": 6,
+      "title": "Thẻ hồ sơ hiển thị ngân sách, thời điểm chuyển vào, nhu cầu và thói quen.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "templates/journey/card.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_discovery_does_not_expose_contacts_and_rejects_bad_cursor",
+      "behavior_evidence": "UI 1: card budgets, dates, needs and habits"
+    },
+    {
+      "id": "R07",
+      "source_number": 7,
+      "title": "Giải thích điểm phù hợp và điều cần trao đổi.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "journey/views.py",
+        "templates/journey/card.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_discovery_does_not_expose_contacts_and_rejects_bad_cursor",
+      "behavior_evidence": "Scorer reused, hard gates before reasons, UI 1"
+    },
+    {
+      "id": "R08",
+      "source_number": 8,
+      "title": "So sánh 2–3 người đã lưu.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/views.py",
+        "templates/journey/compare.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_people_compare_requires_two_or_three_saved_candidates",
+      "behavior_evidence": "Same criteria, separate candidate scores"
+    },
+    {
+      "id": "R09",
+      "source_number": 9,
+      "title": "Xem trước nhịp sinh hoạt chung.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "templates/journey/candidate.html",
+        "templates/journey/routine.html",
+        "static/journey.js"
+      ],
+      "test": "journey.tests.JourneyTests.test_all_authenticated_pages_render_with_populated_journey",
+      "behavior_evidence": "Self-declared times and missing-data text"
+    },
+    {
+      "id": "R10",
+      "source_number": 10,
+      "title": "Ghi chú riêng về từng người.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/candidate.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_private_notes_are_owner_scoped_and_escape_html",
+      "behavior_evidence": "Versioned owner-only note"
+    },
+    {
+      "id": "R11",
+      "source_number": 11,
+      "title": "Chặn, báo cáo và hủy kết nối.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "journey/admin.py",
+        "core/views.py"
+      ],
+      "test": "journey.tests.JourneyTests.test_block_closes_chat_workspace_and_both_discovery_directions",
+      "behavior_evidence": "Also legacy block, rematch and report tests"
+    },
+    {
+      "id": "R12",
+      "source_number": 12,
+      "title": "Gợi ý lời mở đầu có thể chỉnh sửa.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/views.py",
+        "templates/journey/chat.html",
+        "static/journey.js"
+      ],
+      "test": "journey.tests.JourneyTests.test_message_idempotency_and_history_pagination",
+      "behavior_evidence": "UI 2: opener edited before send"
+    },
+    {
+      "id": "R13",
+      "source_number": 13,
+      "title": "Ghim thông tin quan trọng và tóm tắt việc còn chưa thống nhất.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/chat.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_pinned_fact_edit_requires_fresh_individual_consents",
+      "behavior_evidence": "Old source message test; unresolved consent states"
+    },
+    {
+      "id": "R14",
+      "source_number": 14,
+      "title": "Đề xuất cùng tìm nhà; đối phương đồng ý để mở không gian chung.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "templates/journey/hub.html",
+        "templates/journey/chat.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_invitation_requires_invitee_acceptance_and_decline_allows_new_invite",
+      "behavior_evidence": "UI 2: invite then explicit acceptance"
+    },
+    {
+      "id": "R15",
+      "source_number": 15,
+      "title": "Lưu căn riêng trước khi có người cùng tìm.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/rooms.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_private_room_share_is_explicit_snapshot_and_idempotent",
+      "behavior_evidence": "Private rooms allowed before a match"
+    },
+    {
+      "id": "R16",
+      "source_number": 16,
+      "title": "Tìm người cùng cân nhắc một căn đã lưu.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/views.py",
+        "templates/journey/room.html",
+        "templates/journey/discover.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_outsider_cannot_read_chat_workspace_or_private_room",
+      "behavior_evidence": "Authorized room context in discovery; sharing explicit"
+    },
+    {
+      "id": "R17",
+      "source_number": 17,
+      "title": "Thêm link, ảnh và thông tin căn vào bảng tìm nhà chung.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/forms.py",
+        "journey/views.py",
+        "templates/journey/room_edit.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_room_formset_save_update_and_foreign_cost_id_are_isolated",
+      "behavior_evidence": "UI 3,7: links/facts board and photo upload"
+    },
+    {
+      "id": "R18",
+      "source_number": 18,
+      "title": "Mỗi người đánh dấu: quan tâm, chưa chắc hoặc không phù hợp.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/opinions.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_individual_opinions_do_not_set_other_members_or_choice_consents",
+      "behavior_evidence": "Each member owns their opinion"
+    },
+    {
+      "id": "R19",
+      "source_number": 19,
+      "title": "So sánh các căn theo nhu cầu của cả hai.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/views.py",
+        "templates/journey/room_compare.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_room_comparison_has_per_member_names_and_needs",
+      "behavior_evidence": "Needs, location, dates and per-person budget warnings"
+    },
+    {
+      "id": "R20",
+      "source_number": 20,
+      "title": "Tính tiền hàng tháng và tiền đầu kỳ cho từng người.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/costs.py",
+        "templates/journey/cost_summary.html"
+      ],
+      "test": "journey.tests.CostTests.test_unknown_estimated_and_deposit_remain_distinct",
+      "behavior_evidence": "UI 3: monthly/upfront per person"
+    },
+    {
+      "id": "R21",
+      "source_number": 21,
+      "title": "Thử các cách chia chi phí, cảnh báo vượt ngân sách.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/costs.py",
+        "journey/services.py",
+        "templates/journey/room.html"
+      ],
+      "test": "journey.tests.CostTests.test_allocation_conserves_vnd_and_is_stable",
+      "behavior_evidence": "Budget warnings and immutable saved ratio snapshot"
+    },
+    {
+      "id": "R22",
+      "source_number": 22,
+      "title": "Hiển thị rõ khoản chưa biết và thông tin cần kiểm tra.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/costs.py",
+        "journey/forms.py",
+        "templates/journey/cost_summary.html"
+      ],
+      "test": "journey.tests.CostTests.test_omitted_deposit_and_initial_charges_are_unknown",
+      "behavior_evidence": "Unknown/estimated/known, sources, verification checklist"
+    },
+    {
+      "id": "R23",
+      "source_number": 23,
+      "title": "Phối hợp lịch đi xem nhà.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/room.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_viewing_requires_each_member_response_again_after_time_change",
+      "behavior_evidence": "Separate responses, new time versions, cancel"
+    },
+    {
+      "id": "R24",
+      "source_number": 24,
+      "title": "Checklist đi xem theo từng căn.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "journey/views.py",
+        "templates/journey/room.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_checklist_evidence_and_invalid_image_ids",
+      "behavior_evidence": "Per-room default and added checklist, versioned updates"
+    },
+    {
+      "id": "R25",
+      "source_number": 25,
+      "title": "Ghi chú, ảnh và bằng chứng sau khi đi xem.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/room.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_private_images_are_authenticated_and_pins_use_correct_percentages",
+      "behavior_evidence": "Evidence notes with authorized photos"
+    },
+    {
+      "id": "R26",
+      "source_number": 26,
+      "title": "Đề xuất chọn căn và xác nhận riêng của từng người.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "templates/journey/workspace.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_choice_requires_both_consents_and_room_changes_invalidate_them",
+      "behavior_evidence": "UI 5: proposal itself grants no consent"
+    },
+    {
+      "id": "R27",
+      "source_number": 27,
+      "title": "Tạo bản nháp thống nhất về tiền, vệ sinh, khách, giờ yên tĩnh và riêng tư.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/forms.py",
+        "journey/services.py",
+        "templates/journey/agreement.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_incomplete_agreement_cannot_be_confirmed",
+      "behavior_evidence": "UI 5: five editable draft clauses"
+    },
+    {
+      "id": "R28",
+      "source_number": 28,
+      "title": "Theo dõi điều khoản đã đồng ý và còn cần trao đổi.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/views.py",
+        "templates/journey/agreement.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_agreement_requires_each_clause_and_each_person_then_can_start_move",
+      "behavior_evidence": "Per-clause agreement/discussion with notes"
+    },
+    {
+      "id": "R29",
+      "source_number": 29,
+      "title": "Yêu cầu xác nhận lại khi thay đổi nội dung quan trọng.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "journey/views.py"
+      ],
+      "test": "journey.tests.JourneyTests.test_agreement_edit_and_clause_disagreement_revoke_move_in",
+      "behavior_evidence": "Also room/scenario change and concurrent consent test"
+    },
+    {
+      "id": "R30",
+      "source_number": 30,
+      "title": "Lập kế hoạch chuyển vào và phân công việc.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/forms.py",
+        "journey/views.py",
+        "templates/journey/workspace.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_task_templates_assignment_edit_and_stale_update",
+      "behavior_evidence": "UI 5,6: move gate, suggested tasks, assign/edit/due dates"
+    },
+    {
+      "id": "R31",
+      "source_number": 31,
+      "title": "Khôi phục đúng việc đang làm khi mở lại ứng dụng.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/models.py",
+        "journey/services.py",
+        "journey/views.py"
+      ],
+      "test": "journey.tests.JourneyTests.test_resume_rechecks_membership_and_rejects_external_redirect",
+      "behavior_evidence": "Checkpoints for deck, candidate, preferences, chat, room, workspace, agreement"
+    },
+    {
+      "id": "R32",
+      "source_number": 32,
+      "title": "Thông báo thay đổi có ảnh hưởng đến quyết định.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "journey/context.py",
+        "templates/journey/notifications.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_notifications_are_durable_idempotent_and_respect_preferences_and_membership",
+      "behavior_evidence": "Outbox, receipt, membership and unread badge"
+    },
+    {
+      "id": "R33",
+      "source_number": 33,
+      "title": "Thẻ quẹt cân bằng ảnh cá nhân với thông tin quyết định ở ghép.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "templates/journey/card.html",
+        "static/journey.css"
+      ],
+      "test": "journey.tests.JourneyTests.test_discovery_does_not_expose_contacts_and_rejects_bad_cursor",
+      "behavior_evidence": "UI 1 and desktop screenshot: photo/decision information balance"
+    },
+    {
+      "id": "R34",
+      "source_number": 34,
+      "title": "Có nút tương đương thao tác quẹt, dùng được bằng bàn phím.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "templates/journey/card.html",
+        "static/journey.js",
+        "static/journey.css"
+      ],
+      "test": "journey.tests.JourneyTests.test_saved_is_independent_of_decision_and_mutual_match",
+      "behavior_evidence": "UI 1,7,9: Enter, equivalent Like/Pass, left/right gesture"
+    },
+    {
+      "id": "R35",
+      "source_number": 35,
+      "title": "Hình “một ngày ở cùng” để so sánh nhịp sinh hoạt.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "templates/journey/routine.html",
+        "static/journey.js",
+        "static/journey.css"
+      ],
+      "test": "journey.tests.JourneyTests.test_all_authenticated_pages_render_with_populated_journey",
+      "behavior_evidence": "24-hour chart handles midnight, matching text alternative"
+    },
+    {
+      "id": "R36",
+      "source_number": 36,
+      "title": "Gallery “căn này với chúng mình”, kèm chi phí từng người.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "templates/journey/room.html",
+        "templates/journey/cost_summary.html",
+        "static/journey.css"
+      ],
+      "test": "journey.tests.JourneyTests.test_private_images_are_authenticated_and_pins_use_correct_percentages",
+      "behavior_evidence": "UI 7: gallery, caption and per-member costs"
+    },
+    {
+      "id": "R37",
+      "source_number": 37,
+      "title": "Ghim câu hỏi trực tiếp lên ảnh căn.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/forms.py",
+        "journey/models.py",
+        "templates/journey/room.html",
+        "static/journey.js"
+      ],
+      "test": "journey.tests.JourneyTests.test_private_images_are_authenticated_and_pins_use_correct_percentages",
+      "behavior_evidence": "UI 7: actual photo click and pin by Enter"
+    },
+    {
+      "id": "R38",
+      "source_number": 38,
+      "title": "Avatar và ý kiến từng người xuất hiện cạnh mỗi phương án.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/views.py",
+        "templates/journey/opinions.html",
+        "templates/journey/workspace.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_board_shows_both_members_and_pending_opinion_without_inventing_consent",
+      "behavior_evidence": "Avatars/names beside opinion, pending when no response"
+    },
+    {
+      "id": "R39",
+      "source_number": 39,
+      "title": "Trạng thái rõ: match → cùng tìm → chọn căn → chuyển vào.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "journey/services.py",
+        "templates/journey/workspace.html",
+        "templates/journey/chat.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_agreement_requires_each_clause_and_each_person_then_can_start_move",
+      "behavior_evidence": "UI 1,2,5,6: independent states and four-stage progress"
+    },
+    {
+      "id": "R40",
+      "source_number": 40,
+      "title": "Giao diện gần gũi, màu ấm, chữ dễ đọc, chuyển động nhẹ.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "static/journey.css",
+        "templates/journey/base.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_all_authenticated_pages_render_with_populated_journey",
+      "behavior_evidence": "Desktop/mobile visual QA, no overflow, focus and reduced-motion CSS"
+    },
+    {
+      "id": "R41",
+      "source_number": 41,
+      "title": "Tự lưu, giữ dữ liệu khi quay lại hoặc lỗi mạng.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "static/journey.js",
+        "journey/views.py",
+        "templates/journey/preferences.html"
+      ],
+      "test": "journey.tests.JourneyTests.test_preferences_form_has_exactly_one_version_field_for_autosave",
+      "behavior_evidence": "UI 3,4,8: dynamic draft restore, stale comparison, connection failure and cleanup"
+    },
+    {
+      "id": "R42",
+      "source_number": 42,
+      "title": "Màn hình trống/lỗi có hành động tiếp theo rõ ràng.",
+      "implementation_status": "implemented",
+      "product_disposition": null,
+      "paths": [
+        "templates/journey/error.html",
+        "templates/journey/discover.html",
+        "templates/journey/hub.html",
+        "static/journey.js"
+      ],
+      "test": "journey.tests.JourneyTests.test_anonymous_feature_off_and_csrf_gate",
+      "behavior_evidence": "UI 8,9: error with next action, deck empty with next links, save status"
+    }
+  ],
+  "additional_dependency": {
+    "id": "S-CHAT",
+    "paths": [
+      "journey/services.py",
+      "journey/views.py",
+      "templates/journey/chat.html",
+      "static/journey.js"
+    ],
+    "transport": "HTTP polling, 4 seconds",
+    "test": "journey.tests.JourneyTests.test_message_idempotency_and_history_pagination"
+  }
+}

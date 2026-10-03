@@ -2,6 +2,8 @@
 
 ROOMORA is a Vietnamese, mobile-first MVP for finding compatible roommates in Hanoi. It compares lifestyle preferences before people choose to connect.
 
+The roommate journey at `/together/` adds mutual matching, chat, private saved people/rooms, an explicitly accepted shared house board, cost allocation, viewing plans, versioned agreements and move-in tasks. See [the integration guide](docs/journey/README.md), [feature coverage](docs/journey/coverage.md) and [verification evidence](docs/journey/verification.md).
+
 ## Run locally
 
 Requires Python 3.12+ and SQLite (included with Python).
@@ -22,6 +24,7 @@ Open `http://127.0.0.1:8000`. Create regular test accounts through the registrat
 
 ```bash
 python manage.py test
+python manage.py test --settings=config.test_settings
 python manage.py check --deploy
 python manage.py seed_demo
 ```
