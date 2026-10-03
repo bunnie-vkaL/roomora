@@ -1,0 +1,814 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-03",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "status": "proposed_unreviewed",
+  "source": {
+    "conversation_id": "6abfe260-2c78-83ec-a677-124b9f2c2b80",
+    "title": "Nghiên cứu tính năng ghép trọ",
+    "verified_input": "chat_text",
+    "numbered_list_count": 42,
+    "code_table_rows": 41,
+    "docx": {
+      "filename": "Roommate_Functions_Phuong_Huong_Code.docx",
+      "status": "not_received",
+      "sha256": null
+    },
+    "earlier_spec_md": {
+      "filename": "Roommate_Product_Functions_UX_Journey.md",
+      "status": "not_received",
+      "claimed_version": "v4",
+      "fn_mapping_verified": false
+    }
+  },
+  "repository": {
+    "full_name": "bunnie-vkaL/roomora",
+    "base_branch": "main",
+    "base_commit": "a53c16d4c0398d5de40c702a681d5e276cfaa6a9"
+  },
+  "decision_policy": {
+    "engineering_analysis_is_product_review": false,
+    "merging_documentation_approves_features": false,
+    "implementation_requires_explicit_scope_decision": true
+  },
+  "supplemental_dependencies": [
+    {
+      "id": "S-CHAT",
+      "source": "code_table:Chat",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "enabled": false
+    }
+  ],
+  "features": [
+    {
+      "id": "R01",
+      "source_number": 1,
+      "title": "Quẹt phải để muốn kết nối, quẹt trái để bỏ qua.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "templates/core/discover.html",
+        "core/views.py:find_matches"
+      ],
+      "conditional_implementation": "SwipeDecision + Pointer Events; POST quyết định, nút Like/Pass cùng command; cursor ổn định",
+      "open_product_question": "quẹt là lời mời theo pilot hay Like riêng?",
+      "dependencies_and_gates": "G0,G1,G2",
+      "acceptance_evidence_required": "quẹt/nút/bàn phím cùng kết quả; request lặp không trùng",
+      "planned_flag_group": "discovery",
+      "enabled": false
+    },
+    {
+      "id": "R02",
+      "source_number": 2,
+      "title": "Hai bên cùng quan tâm thì match và mở chat.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/models.py:ConnectionRequest",
+        "core/views.py:connect,connection_action"
+      ],
+      "conditional_implementation": "Pilot giữ request/accept; phương án B thêm canonical Connection + Conversation; mutual Like trong transaction",
+      "open_product_question": "Like có đồng ý mở chat hay tiết lộ liên hệ? Hai consent riêng",
+      "dependencies_and_gates": "R01; G0,G2,G3",
+      "acceptance_evidence_required": "hai Like đồng thời chỉ một cặp/một chat; không lộ contact chỉ vì Like",
+      "planned_flag_group": "connections",
+      "enabled": false
+    },
+    {
+      "id": "R03",
+      "source_number": 3,
+      "title": "Hoàn tác lượt quẹt nhầm.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/views.py:connect (chưa có lịch sử quẹt)"
+      ],
+      "conditional_implementation": "DecisionEvent ghi lịch sử; undo lượt cuối theo version nếu chưa match",
+      "open_product_question": "giới hạn undo và xử lý sau match",
+      "dependencies_and_gates": "R01,R02; G0,G2",
+      "acceptance_evidence_required": "undo không xóa match/consent đã xác nhận",
+      "planned_flag_group": "discovery",
+      "enabled": false
+    },
+    {
+      "id": "R04",
+      "source_number": 4,
+      "title": "Lưu người để xem sau, độc lập với Like.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có SavedCandidate)"
+      ],
+      "conditional_implementation": "SavedCandidate(owner,candidate) unique; POST save/remove độc lập Like",
+      "open_product_question": "lưu có thời hạn, xử lý hồ sơ bị ẩn/chặn",
+      "dependencies_and_gates": "G0,G1",
+      "acceptance_evidence_required": "lưu không gửi Like; người khác không đọc danh sách riêng",
+      "planned_flag_group": "saved",
+      "enabled": false
+    },
+    {
+      "id": "R05",
+      "source_number": 5,
+      "title": "Xem danh sách người đã muốn kết nối với mình.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/models.py:ConnectionRequest.received_requests"
+      ],
+      "conditional_implementation": "Pilot có pending requests; B query Like đến còn hiệu lực, cursor; lọc block/unpublished",
+      "open_product_question": "hiển thị người Like có thuộc consent hồ sơ?",
+      "dependencies_and_gates": "R01,R02; G0,G1,G2",
+      "acceptance_evidence_required": "không thấy người đã chặn/ngừng tìm; chưa accept không có contact",
+      "planned_flag_group": "discovery",
+      "enabled": false
+    },
+    {
+      "id": "R06",
+      "source_number": 6,
+      "title": "Thẻ hồ sơ hiển thị ngân sách, thời điểm chuyển vào, nhu cầu và thói quen.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/models.py:Profile,LifestyleAnswers",
+        "templates/core/discover.html"
+      ],
+      "conditional_implementation": "CandidateCardView whitelist; thêm move_in_window/nhu cầu có trạng thái chưa rõ",
+      "open_product_question": "dữ liệu nào công khai và trường bắt buộc nào?",
+      "dependencies_and_gates": "G0,G1",
+      "acceptance_evidence_required": "contact/notes không có trong payload; thiếu ngày không tự đoán",
+      "planned_flag_group": "discovery",
+      "enabled": false
+    },
+    {
+      "id": "R07",
+      "source_number": 7,
+      "title": "Giải thích điểm phù hợp và điều cần trao đổi.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/scoring.py:score_profiles",
+        "templates/core/comparison.html"
+      ],
+      "conditional_implementation": "Tái dùng MatchResult version 2026.2; thêm reason IDs + dữ kiện có quyền xem; rule mới version riêng",
+      "open_product_question": "quy tắc mới và dữ liệu thiếu phải được duyệt; không coi % là xác suất",
+      "dependencies_and_gates": "G0,G1",
+      "acceptance_evidence_required": "điểm ở deck/detail nhất quán; hard exclusions giữ nguyên",
+      "planned_flag_group": "discovery",
+      "enabled": false
+    },
+    {
+      "id": "R08",
+      "source_number": 8,
+      "title": "So sánh 2–3 người đã lưu.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/views.py:comparison",
+        "templates/core/comparison.html"
+      ],
+      "conditional_implementation": "Endpoint so sánh tối đa 3 candidate đủ quyền; mỗi candidate so với người xem",
+      "open_product_question": "so sánh người đã lưu, bảng tiêu chí nào?",
+      "dependencies_and_gates": "R04,R07; G0,G1",
+      "acceptance_evidence_required": "không vượt 3; người bị chặn không hiện; không so 3 người như một household đã đồng ý",
+      "planned_flag_group": "discovery",
+      "enabled": false
+    },
+    {
+      "id": "R09",
+      "source_number": 9,
+      "title": "Xem trước nhịp sinh hoạt chung.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/models.py:LifestyleAnswers",
+        "core/scoring.py:BEDTIMES"
+      ],
+      "conditional_implementation": "RoutineWindow mới; SharedRoutineTimeline có text; câu trả lời ordinal chỉ hiện khoảng/mức",
+      "open_product_question": "không biến mức giờ ngủ thành lịch chính xác; cho biết phần thiếu",
+      "dependencies_and_gates": "R06; G0,G1",
+      "acceptance_evidence_required": "lịch qua nửa đêm đúng; mục chưa biết hiển thị rõ",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R10",
+      "source_number": 10,
+      "title": "Ghi chú riêng về từng người.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có PrivateNote)"
+      ],
+      "conditional_implementation": "PrivateNote(owner,target); mọi read/write scope owner; không serialize ra card",
+      "open_product_question": "lưu trữ/xóa ghi chú và dữ liệu nhạy cảm",
+      "dependencies_and_gates": "G0,G1",
+      "acceptance_evidence_required": "chủ hồ sơ và thành viên khác không đọc được note",
+      "planned_flag_group": "saved",
+      "enabled": false
+    },
+    {
+      "id": "R11",
+      "source_number": 11,
+      "title": "Chặn, báo cáo và hủy kết nối.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/models.py:ConnectionRequest.BLOCKED",
+        "core/views.py:blocked_pair,connection_action"
+      ],
+      "conditional_implementation": "Command block/report/disconnect riêng; UserBlock độc lập lịch sử relation; Report hạn chế staff",
+      "open_product_question": "phạm vi chặn, report vận hành, unmatch khác undo/withdraw",
+      "dependencies_and_gates": "G0,G1,G2",
+      "acceptance_evidence_required": "block áp dụng discovery/so sánh/chat/workspace; disconnect dừng quyền phù hợp",
+      "planned_flag_group": "connections",
+      "enabled": false
+    },
+    {
+      "id": "R12",
+      "source_number": 12,
+      "title": "Gợi ý lời mở đầu có thể chỉnh sửa.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/scoring.py:MatchResult (dữ liệu mẫu lời mở đầu)"
+      ],
+      "conditional_implementation": "Template từ similarities/differences; điền vào composer, người dùng sửa rồi gửi",
+      "open_product_question": "chat nội bộ B hay bản nháp sao chép ra kênh liên hệ pilot A",
+      "dependencies_and_gates": "S-CHAT hoặc contact accepted; G0,G1",
+      "acceptance_evidence_required": "không tự gửi, không đưa contact/private answers ngoài quyền",
+      "planned_flag_group": "chat",
+      "enabled": false
+    },
+    {
+      "id": "R13",
+      "source_number": 13,
+      "title": "Ghim thông tin quan trọng và tóm tắt việc còn chưa thống nhất.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có PinnedFact)"
+      ],
+      "conditional_implementation": "PinnedFact(source_message,proposer,status,version); tóm tắt thủ công, tách chưa thống nhất",
+      "open_product_question": "ai được xác nhận; không tự biến phát ngôn thành đồng ý",
+      "dependencies_and_gates": "S-CHAT; G0,G1,G4",
+      "acceptance_evidence_required": "pin giữ liên kết nguồn; sửa nội dung không kế thừa consent",
+      "planned_flag_group": "chat",
+      "enabled": false
+    },
+    {
+      "id": "R14",
+      "source_number": 14,
+      "title": "Đề xuất cùng tìm nhà; đối phương đồng ý để mở không gian chung.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có SearchWorkspace)"
+      ],
+      "conditional_implementation": "WorkspaceInvite + SearchWorkspace + WorkspaceMember; tạo/mở chung khi invitation được chấp nhận",
+      "open_product_question": "hai người hay nhiều người, rời và thu hồi quyền thế nào?",
+      "dependencies_and_gates": "R02,R11; G0,G1,G2",
+      "acceptance_evidence_required": "match không tự tạo consent cùng tìm; người ngoài không truy cập workspace",
+      "planned_flag_group": "workspace",
+      "enabled": false
+    },
+    {
+      "id": "R15",
+      "source_number": 15,
+      "title": "Lưu căn riêng trước khi có người cùng tìm.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có RoomOption)"
+      ],
+      "conditional_implementation": "RoomOption(owner,link,media,facts); lưu riêng trước workspace; nguồn dữ kiện",
+      "open_product_question": "thêm thủ công trước hay nhập listing? không crawl mặc định",
+      "dependencies_and_gates": "G0,G1,G5",
+      "acceptance_evidence_required": "căn riêng không tự chia sẻ; URL xấu không bị server tự fetch",
+      "planned_flag_group": "rooms",
+      "enabled": false
+    },
+    {
+      "id": "R16",
+      "source_number": 16,
+      "title": "Tìm người cùng cân nhắc một căn đã lưu.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/views.py:find_matches (chưa có room context)"
+      ],
+      "conditional_implementation": "room_context_id được owner/member cho phép; tái dùng eligibility người + lý do liên quan căn",
+      "open_product_question": "người nào được thấy căn khi đề xuất theo căn?",
+      "dependencies_and_gates": "R15,R07; G0,G1",
+      "acceptance_evidence_required": "context không vượt hard exclusions; không lộ link/căn riêng ra discovery",
+      "planned_flag_group": "rooms",
+      "enabled": false
+    },
+    {
+      "id": "R17",
+      "source_number": 17,
+      "title": "Thêm link, ảnh và thông tin căn vào bảng tìm nhà chung.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có WorkspaceRoom)"
+      ],
+      "conditional_implementation": "WorkspaceRoom liên kết/snapshot từ RoomOption sau share command; ACL ảnh theo workspace",
+      "open_product_question": "snapshot hay đồng bộ live, sửa/xóa căn riêng ảnh hưởng bản chung ra sao?",
+      "dependencies_and_gates": "R14,R15; G0,G1,G4,G5",
+      "acceptance_evidence_required": "share rõ ràng; truy cập ảnh đòi quyền; dữ kiện nguồn có provenance",
+      "planned_flag_group": "workspace",
+      "enabled": false
+    },
+    {
+      "id": "R18",
+      "source_number": 18,
+      "title": "Mỗi người đánh dấu: quan tâm, chưa chắc hoặc không phù hợp.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có RoomOpinion)"
+      ],
+      "conditional_implementation": "RoomOpinion(room,member,opinion) unique; version + history; mỗi người sửa ý kiến mình",
+      "open_product_question": "ý kiến khác proposal chọn căn; trạng thái uncertainty",
+      "dependencies_and_gates": "R17; G0,G1,G4",
+      "acceptance_evidence_required": "không sửa hộ người khác; latest version không ghi đè mất ý kiến",
+      "planned_flag_group": "workspace",
+      "enabled": false
+    },
+    {
+      "id": "R19",
+      "source_number": 19,
+      "title": "So sánh các căn theo nhu cầu của cả hai.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "templates/core/comparison.html (hiện chỉ so người)"
+      ],
+      "conditional_implementation": "RoomComparisonView chuẩn hóa 2–3 căn + nhu cầu của từng thành viên",
+      "open_product_question": "tiêu chí căn và xử lý dữ kiện thiếu/ước tính",
+      "dependencies_and_gates": "R17,R18,R20,R22; G0,G1",
+      "acceptance_evidence_required": "không xếp căn unknown rẻ hơn căn known; cùng đơn vị/chu kỳ",
+      "planned_flag_group": "rooms",
+      "enabled": false
+    },
+    {
+      "id": "R20",
+      "source_number": 20,
+      "title": "Tính tiền hàng tháng và tiền đầu kỳ cho từng người.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py:Profile.rent_min,rent_max (chỉ là rent budget)"
+      ],
+      "conditional_implementation": "Hàm thuần calculate_shared_costs: integer VND; recurring/one-off/deposit riêng; lịch trả",
+      "open_product_question": "ngân sách thuê hiện tại không mặc định là trần tổng chi phí",
+      "dependencies_and_gates": "R15,R22; G0,G4",
+      "acceptance_evidence_required": "tổng phần bằng tổng khoản; deposit không bị cộng thành tiền tháng",
+      "planned_flag_group": "costs",
+      "enabled": false
+    },
+    {
+      "id": "R21",
+      "source_number": 21,
+      "title": "Thử các cách chia chi phí, cảnh báo vượt ngân sách.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có CostScenario)"
+      ],
+      "conditional_implementation": "CostScenario equal/ratio/custom; largest remainder phân bổ đồng; comparison saved version",
+      "open_product_question": "quy tắc chia, tổng trần mỗi người và ai xác nhận",
+      "dependencies_and_gates": "R20; G0,G4",
+      "acceptance_evidence_required": "số lẻ tổng vẫn khớp; 0/âm/tỷ lệ sai bị từ chối; đổi tiền vô hiệu consent cũ",
+      "planned_flag_group": "costs",
+      "enabled": false
+    },
+    {
+      "id": "R22",
+      "source_number": 22,
+      "title": "Hiển thị rõ khoản chưa biết và thông tin cần kiểm tra.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có cost facts)"
+      ],
+      "conditional_implementation": "AmountFact(value,status=KNOWN/ESTIMATED/UNKNOWN,source,checked_at); partial totals có nhãn",
+      "open_product_question": "cách hiển thị tổng chưa đầy đủ và khoản cần xác minh",
+      "dependencies_and_gates": "G0,G4",
+      "acceptance_evidence_required": "UNKNOWN không thành 0; estimated không thành confirmed",
+      "planned_flag_group": "costs",
+      "enabled": false
+    },
+    {
+      "id": "R23",
+      "source_number": 23,
+      "title": "Phối hợp lịch đi xem nhà.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có ViewingPlan)"
+      ],
+      "conditional_implementation": "ViewingPlan với thời gian timezone + responses/member + version; confirmed đủ chấp thuận",
+      "open_product_question": "đổi giờ/hủy và mức đồng ý nhóm",
+      "dependencies_and_gates": "R14,R17; G0,G1,G4",
+      "acceptance_evidence_required": "sửa giờ hủy xác nhận version cũ; người ngoài không nhận lịch",
+      "planned_flag_group": "viewings",
+      "enabled": false
+    },
+    {
+      "id": "R24",
+      "source_number": 24,
+      "title": "Checklist đi xem theo từng căn.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có ViewingChecklistItem)"
+      ],
+      "conditional_implementation": "Checklist template + mục từ unknown facts; trạng thái, note, actor",
+      "open_product_question": "check là đã xem hay đã xác minh có bằng chứng?",
+      "dependencies_and_gates": "R22,R23; G0,G1",
+      "acceptance_evidence_required": "đánh dấu xong không tự đổi dữ kiện unknown thành known",
+      "planned_flag_group": "viewings",
+      "enabled": false
+    },
+    {
+      "id": "R25",
+      "source_number": 25,
+      "title": "Ghi chú, ảnh và bằng chứng sau khi đi xem.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py:Profile.avatar (file path, chưa có evidence)"
+      ],
+      "conditional_implementation": "ViewingEvidence(member,time,room,storage_key); ảnh giới hạn/kiểm tra định dạng + quyền media",
+      "open_product_question": "lưu trữ, xóa, quyền ảnh; FileField không chứa binary trong DB",
+      "dependencies_and_gates": "R17,R23; G0,G1,G5",
+      "acceptance_evidence_required": "ảnh chỉ member đọc; loại file giả và vượt giới hạn",
+      "planned_flag_group": "viewings",
+      "enabled": false
+    },
+    {
+      "id": "R26",
+      "source_number": 26,
+      "title": "Đề xuất chọn căn và xác nhận riêng của từng người.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có RoomChoiceProposal)"
+      ],
+      "conditional_implementation": "Proposal(room,member_set_version,cost_version,version) + ChoiceConsent(member,version)",
+      "open_product_question": "ai phải đồng ý và trường nào là thay đổi quan trọng?",
+      "dependencies_and_gates": "R14,R18,R20,R21; G0,G1,G2,G4",
+      "acceptance_evidence_required": "tất cả đồng ý cùng version; đổi căn/tiền/thành viên hết hiệu lực bản cũ",
+      "planned_flag_group": "decisions",
+      "enabled": false
+    },
+    {
+      "id": "R27",
+      "source_number": 27,
+      "title": "Tạo bản nháp thống nhất về tiền, vệ sinh, khách, giờ yên tĩnh và riêng tư.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py:LifestyleAnswers (chỉ dữ liệu gợi ý)"
+      ],
+      "conditional_implementation": "Agreement/AgreementClause bản nháp từ dữ kiện đã share; provenance; editor",
+      "open_product_question": "mẫu điều khoản và ranh giới với hợp đồng thuê",
+      "dependencies_and_gates": "R14,R26; G0,G1,G4",
+      "acceptance_evidence_required": "nháp không được gắn là đã đồng ý; private note không dùng làm nguồn",
+      "planned_flag_group": "agreements",
+      "enabled": false
+    },
+    {
+      "id": "R28",
+      "source_number": 28,
+      "title": "Theo dõi điều khoản đã đồng ý và còn cần trao đổi.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có AgreementConsent)"
+      ],
+      "conditional_implementation": "ClauseResponse cho thảo luận + AgreementConsent(member,agreement_version) cho chốt",
+      "open_product_question": "đồng ý từng điều khác đồng ý toàn bản; phản hồi ai là bắt buộc",
+      "dependencies_and_gates": "R27; G0,G1,G4",
+      "acceptance_evidence_required": "màn tiến độ phản ánh đồng ý/thảo luận riêng từng người",
+      "planned_flag_group": "agreements",
+      "enabled": false
+    },
+    {
+      "id": "R29",
+      "source_number": 29,
+      "title": "Yêu cầu xác nhận lại khi thay đổi nội dung quan trọng.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có versioned agreement)"
+      ],
+      "conditional_implementation": "Optimistic concurrency expected_version; bump version đổi nội dung quan trọng; consent version-specific",
+      "open_product_question": "danh sách field quan trọng, rút consent, thay thành viên",
+      "dependencies_and_gates": "R26,R27,R28; G0,G2,G4",
+      "acceptance_evidence_required": "stale write nhận conflict; không chốt bằng consent bản trước",
+      "planned_flag_group": "agreements",
+      "enabled": false
+    },
+    {
+      "id": "R30",
+      "source_number": 30,
+      "title": "Lập kế hoạch chuyển vào và phân công việc.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có MoveInTask)"
+      ],
+      "conditional_implementation": "MoveInTask(workspace,assignee,due_at,status) + template; phân quyền owner/member",
+      "open_product_question": "mốc bắt đầu, trách nhiệm và xử lý member rời",
+      "dependencies_and_gates": "R26,R27; G0,G1",
+      "acceptance_evidence_required": "phân công chỉ member còn hoạt động; thay đổi có lịch sử",
+      "planned_flag_group": "move_in",
+      "enabled": false
+    },
+    {
+      "id": "R31",
+      "source_number": 31,
+      "title": "Khôi phục đúng việc đang làm khi mở lại ứng dụng.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/views.py:questionnaire (draft theo bước)"
+      ],
+      "conditional_implementation": "JourneyCheckpoint(user,workspace,step,entity,version); load kiểm tra ACL/trạng thái",
+      "open_product_question": "khôi phục thao tác nào; thời hạn draft và chia sẻ thiết bị",
+      "dependencies_and_gates": "G0,G1,G4",
+      "acceptance_evidence_required": "không resume workspace đã rời/bị chặn; không tự commit draft",
+      "planned_flag_group": "resume",
+      "enabled": false
+    },
+    {
+      "id": "R32",
+      "source_number": 32,
+      "title": "Thông báo thay đổi có ảnh hưởng đến quyết định.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/models.py:PilotEvent (chỉ event pilot)"
+      ],
+      "conditional_implementation": "OutboxEvent trong transaction + worker dedupe; in-app notification trước; preference",
+      "open_product_question": "kênh thông báo, silent change, nội dung preview nhạy cảm",
+      "dependencies_and_gates": "R14 hoặc S-CHAT; G0,G1,G2,G6",
+      "acceptance_evidence_required": "commit lỗi không phát; retry một event không tạo thông báo trùng",
+      "planned_flag_group": "notifications",
+      "enabled": false
+    },
+    {
+      "id": "R33",
+      "source_number": 33,
+      "title": "Thẻ quẹt cân bằng ảnh cá nhân với thông tin quyết định ở ghép.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "templates/core/discover.html",
+        "static/discover.css"
+      ],
+      "conditional_implementation": "Card mở rộng ảnh + rent/date + reasons; whitelist; ưu tiên thông tin quyết định",
+      "open_product_question": "tỷ lệ ảnh/thông tin và dữ liệu được công khai",
+      "dependencies_and_gates": "R06,R07; G0,G1",
+      "acceptance_evidence_required": "đọc được trên mobile; không lộ identity hồ sơ synthetic như người thật",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R34",
+      "source_number": 34,
+      "title": "Có nút tương đương thao tác quẹt, dùng được bằng bàn phím.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "templates/core/discover.html (link/button, chưa có swipe)"
+      ],
+      "conditional_implementation": "Like/Pass/Save/Undo button cùng command gesture; focus, keyboard, aria-live",
+      "open_product_question": "keyboard flow và reduced motion",
+      "dependencies_and_gates": "R01,R03,R04; G0,G7",
+      "acceptance_evidence_required": "toàn hành trình deck dùng bàn phím; gesture không tạo hành động thêm",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R35",
+      "source_number": 35,
+      "title": "Hình “một ngày ở cùng” để so sánh nhịp sinh hoạt.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/scoring.py:BEDTIMES",
+        "core/models.py:LifestyleAnswers"
+      ],
+      "conditional_implementation": "SharedRoutineTimeline như R09, mô tả chữ tương đương; giữ ID riêng vì nguồn riêng",
+      "open_product_question": "giờ cụ thể cần data mới và consent",
+      "dependencies_and_gates": "R09; G0,G1,G7",
+      "acceptance_evidence_required": "text và hình cùng ý nghĩa; không trình lịch ordinal thành lịch thật",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R36",
+      "source_number": 36,
+      "title": "Gallery “căn này với chúng mình”, kèm chi phí từng người.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "templates/core/comparison.html (chưa có gallery căn)"
+      ],
+      "conditional_implementation": "SharedHomePreview gallery + mỗi người tiền + unknown facts + câu hỏi",
+      "open_product_question": "ảnh có quyền sử dụng và facts đã chia sẻ",
+      "dependencies_and_gates": "R17,R20,R22; G0,G1,G5,G7",
+      "acceptance_evidence_required": "chi phí cạnh ảnh đúng scenario version; ảnh thiếu có fallback",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R37",
+      "source_number": 37,
+      "title": "Ghim câu hỏi trực tiếp lên ảnh căn.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có ImagePin)"
+      ],
+      "conditional_implementation": "ImagePin(image_version,x/y 0..1,question,author); text list tương đương",
+      "open_product_question": "pin thuộc bản ảnh nào, xóa/thay ảnh xử lý ra sao?",
+      "dependencies_and_gates": "R25 hoặc R17 có ảnh; G0,G1,G5,G7",
+      "acceptance_evidence_required": "resize không lệch; thay ảnh không chuyển pin cũ sang ảnh mới",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R38",
+      "source_number": 38,
+      "title": "Avatar và ý kiến từng người xuất hiện cạnh mỗi phương án.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "absent",
+      "evidence": [
+        "core/models.py (chưa có MemberOpinionRow)"
+      ],
+      "conditional_implementation": "MemberOpinionRow dùng avatar + ý kiến riêng, ghi tên người; không chỉ màu",
+      "open_product_question": "mức lộ avatar và member rời workspace",
+      "dependencies_and_gates": "R18; G0,G1,G7",
+      "acceptance_evidence_required": "không gom ý kiến thành đồng thuận; hình/text liên kết đúng member",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R39",
+      "source_number": 39,
+      "title": "Trạng thái rõ: match → cùng tìm → chọn căn → chuyển vào.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/models.py:ConnectionRequest.STATUS_CHOICES"
+      ],
+      "conditional_implementation": "State riêng Connection/Workspace/Choice/Agreement/MoveIn; viewmodel journey tổng hợp",
+      "open_product_question": "định nghĩa từng mốc, rời/block/đổi quyết định",
+      "dependencies_and_gates": "R02,R14,R26,R30; G0,G1,G4",
+      "acceptance_evidence_required": "accepted connection không hiển thị đã chọn nhà; state lùi/đổi có lý do",
+      "planned_flag_group": "journey",
+      "enabled": false
+    },
+    {
+      "id": "R40",
+      "source_number": 40,
+      "title": "Giao diện gần gũi, màu ấm, chữ dễ đọc, chuyển động nhẹ.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "static/app.css",
+        "templates/base.html"
+      ],
+      "conditional_implementation": "Design tokens và component template dùng chung; màu ấm/contrast/type/motion",
+      "open_product_question": "hướng hình ảnh và tiêu chuẩn accessibility",
+      "dependencies_and_gates": "G0,G7",
+      "acceptance_evidence_required": "contrast, zoom/mobile, reduced-motion và chữ dễ đọc",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    },
+    {
+      "id": "R41",
+      "source_number": 41,
+      "title": "Tự lưu, giữ dữ liệu khi quay lại hoặc lỗi mạng.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "core/views.py:questionnaire",
+        "templates/core/profile_form.html"
+      ],
+      "conditional_implementation": "Debounce autosave + expected_version; draft local theo account; retry idempotent",
+      "open_product_question": "phạm vi draft, retention, logout/xóa tài khoản",
+      "dependencies_and_gates": "R31; G0,G1,G2,G4",
+      "acceptance_evidence_required": "offline giữ draft; stale conflict không mất dữ liệu; không lộ draft qua đổi account",
+      "planned_flag_group": "resume",
+      "enabled": false
+    },
+    {
+      "id": "R42",
+      "source_number": 42,
+      "title": "Màn hình trống/lỗi có hành động tiếp theo rõ ràng.",
+      "status": "proposed_unreviewed",
+      "review_rounds": 0,
+      "disposition": null,
+      "baseline": "partial",
+      "evidence": [
+        "templates/core/discover.html",
+        "templates/base.html"
+      ],
+      "conditional_implementation": "Empty/loading/error từng screen; retry giữ input, thông báo lỗi theo action",
+      "open_product_question": "hành động tiếp theo từng state",
+      "dependencies_and_gates": "G0,G7",
+      "acceptance_evidence_required": "không có hồ sơ, lỗi mạng và lỗi quyền có hướng xử lý đúng",
+      "planned_flag_group": "visuals",
+      "enabled": false
+    }
+  ]
+}
