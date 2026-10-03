@@ -1,0 +1,12 @@
+<div class="opinion-row">
+{% for row in rows %}
+<article>
+  <div class="member-heading">
+    <span class="avatar">{% if row.profile.avatar %}<img src="{{ row.profile.avatar.url }}" alt="{{ row.profile.name }}">{% else %}{{ row.profile.name|slice:':1' }}{% endif %}</span>
+    <strong>{{ row.profile.name }}</strong>
+  </div>
+  <p>{{ row.opinion.get_choice_display|default:'Chưa phản hồi' }}</p>
+  {% if row.opinion.note %}<p>{{ row.opinion.note }}</p>{% endif %}
+</article>
+{% empty %}<p>Chưa có ý kiến chung.</p>{% endfor %}
+</div>

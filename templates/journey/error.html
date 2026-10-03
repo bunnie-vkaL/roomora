@@ -1,0 +1,2 @@
+{% extends 'journey/base.html' %}
+{% block journey_content %}<section class="empty"><p class="eyebrow">Cần kiểm tra lại</p><h1>Thao tác chưa hoàn tất</h1><p>{{ error }}</p><div class="hero-actions"><button type="button" data-go-back>Quay lại, giữ bản nháp</button><a class="button secondary" href="{% url 'journey:hub' %}">Về kết nối của bạn</a><a class="button secondary" href="{% url 'journey:discover' %}">Cập nhật danh sách người</a></div></section>{% endblock %}

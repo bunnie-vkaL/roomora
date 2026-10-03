@@ -1,0 +1,3 @@
+{% load journey_tags %}{% csrf_token %}{% mutation_key as key %}
+<input type="hidden" name="mutation_key" value="{{ key }}">
+{% if version != None %}<input type="hidden" name="expected_version" value="{{ version }}">{% endif %}

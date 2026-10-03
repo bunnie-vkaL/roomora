@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block content %}
+{% if journey_enabled %}<section class="journey-welcome"><p class="eyebrow">Hành trình ở ghép</p><h2>Tìm bạn hợp nhịp. Cùng chọn nơi muốn về.</h2><div class="hero-actions"><a class="button" href="{% url 'journey:discover' %}">Quẹt tìm bạn</a><a class="button secondary" href="{% url 'journey:hub' %}">Chat & không gian chung</a><a class="button secondary" href="{% url 'journey:rooms' %}">Lưu căn riêng</a><a class="button secondary" href="{% url 'journey:resume' %}">Tiếp tục việc đang làm</a></div></section>{% endif %}
 <link rel="stylesheet" href="{% static 'dashboard.css' %}">
 <link rel="stylesheet" href="{% static 'profile_image.css' %}">
 <section class="intro"><p class="eyebrow">Không gian của bạn</p><h1>Chào {{ profile.name|default:user.email }}</h1><p>{% if profile.is_published %}Hồ sơ đã xuất bản. Xem những người có khu vực, ngân sách và lifestyle phù hợp với bạn.{% else %}Hoàn thiện hồ sơ để ROOMORA bắt đầu tìm những match phù hợp.{% endif %}</p></section>

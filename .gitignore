@@ -220,3 +220,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Authenticated roommate evidence images
+private_media/
+test_journey_*.sqlite3*
