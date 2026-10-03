@@ -7,7 +7,7 @@
   <div class="discover-header__copy">
     <p class="eyebrow">Khám phá & Gợi ý</p>
     <h1>Gợi ý người ở ghép phù hợp</h1>
-    <p>Danh sách hồ sơ mẫu thử được sắp xếp theo mức độ tương thích cao nhất về phong cách sống, khu vực và ngân sách với tài khoản của bạn.</p>
+    <p>Danh sách được sắp xếp theo mức độ tương thích về phong cách sống, khu vực và ngân sách với hồ sơ của bạn.</p>
   </div>
   <form class="discover-filters" method="get">
     <label><span>Khu vực</span>
@@ -29,18 +29,17 @@
 <section class="discover-results" aria-label="Danh sách hồ sơ phù hợp">
   <div class="discover-results__meta">
     <p class="eyebrow">Gợi ý phù hợp nhất</p>
-    <p>{{ matches|length }} hồ sơ mẫu được xếp hạng theo độ tương thích lifestyle từ cao xuống thấp.</p>
+    <p>{{ matches|length }} người được xếp hạng theo độ tương thích lifestyle từ cao xuống thấp.</p>
   </div>
   <div class="discover-grid">
     {% for other, result in matches %}
     <article class="candidate-card">
       <div class="candidate-card__top">
-        <span class="demo-label">Mẫu thử #{{ forloop.counter|stringformat:"02d" }}</span>
         <span class="score">{{ result.score }}%</span>
       </div>
       <div class="candidate-card__body">
         <p class="candidate-card__label">Lifestyle match</p>
-        <h2>{% if other.is_synthetic %}Mẫu thử #{{ forloop.counter|stringformat:"02d" }}{% else %}{{ other.name }}{% endif %}</h2>
+        <h2>{{ other.name }}</h2>
         <p class="candidate-card__areas"><span class="card-icon">📍</span> {{ other.areas|join:', ' }}</p>
         <p class="candidate-card__budget"><span class="card-icon">💰</span> {{ other.rent_display }}</p>
         <div class="candidate-card__similarities">
@@ -62,7 +61,7 @@
 {% else %}
 <section class="discover-empty empty">
   <p class="eyebrow">Chưa có kết quả</p>
-  <h2>Chưa tìm thấy mẫu thử phù hợp</h2>
+  <h2>Chưa tìm thấy người phù hợp</h2>
   <p>Thử chọn lại bộ lọc khu vực hoặc khoảng ngân sách để khám phá thêm gợi ý.</p>
 </section>
 {% endif %}

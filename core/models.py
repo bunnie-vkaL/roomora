@@ -47,6 +47,19 @@ class Profile(models.Model):
         return f"{self.rent_min:,} – {self.rent_max:,} đ/tháng".replace(",", ".")
 
 
+def recommendable_profiles():
+    """Profiles with a person's name that may appear in recommendation lists."""
+
+    candidates = Profile.objects.filter(is_published=True)
+    candidates = candidates.exclude(name__iexact="freshuser").exclude(name__iexact="Tài khoản thử nghiệm")
+    if settings.DEBUG:
+        return candidates.filter(
+            models.Q(is_synthetic=False)
+            | models.Q(is_synthetic=True, user__username__startswith="sample-rm")
+        )
+    return candidates.filter(is_synthetic=False)
+
+
 class LifestyleAnswers(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name="answers")
     values = models.JSONField(default=dict)
@@ -56,6 +69,17 @@ class LifestyleAnswers(models.Model):
     def is_complete(self):
         return all(type(self.values.get(key)) is int and 0 <= self.values[key] < len(options)
                    for key, _, _, options in QUESTIONS)
+
+
+class ImportedSampleProfile(models.Model):
+    """Original spreadsheet fields that the live profile schema does not model yet."""
+
+    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name="sample_source")
+    source_id = models.CharField(max_length=20, unique=True)
+    source_data = models.JSONField(default=dict)
+    estimated_answers = models.JSONField(default=list)
+    behavior_metrics = models.JSONField(default=dict)
+    imported_at = models.DateTimeField(auto_now=True)
 
 
 class ConnectionRequest(models.Model):

@@ -15,8 +15,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.models import LifestyleAnswers, Profile
-from core.scoring import score_profiles
+from core.models import LifestyleAnswers, Profile, recommendable_profiles
+from core.constants import GROUPS, QUESTIONS
+from core.scoring import REASON_TITLES, score_profiles
 from . import forms as f, models as m, services as s
 from .costs import calculate_shared_costs
 
@@ -85,21 +86,31 @@ def clean_form(form):
 def candidate_card(actor, profile, result=None, context=None):
     result = result or s.eligible_target(actor, profile)
     living = getattr(profile, "living", None)
+    source = getattr(profile, "sample_source", None)
+    estimated_answers = set(source.estimated_answers) if source else set()
+    lifestyle_sections = []
+    answers = profile.answers.values if hasattr(profile, "answers") else {}
+    for group_key, (group_title, _) in GROUPS.items():
+        choices = [{"title": REASON_TITLES[key], "answer": options[answers[key]],
+                    "estimated": key in estimated_answers}
+                   for key, group, _, options in QUESTIONS if group == group_key and key in answers]
+        if choices:
+            lifestyle_sections.append({"title": group_title, "choices": choices})
     context_reason = ""
     if context:
         context_reason = f"Cùng cân nhắc {context.title}; cần trao đổi thêm về căn và phần tiền mỗi người."
     return {"profile": profile, "score": result.score, "score_version": result.version,
             "similarities": result.similarities, "differences": result.differences, "warnings": result.warnings,
-            "living": living, "context_reason": context_reason,
+            "living": living, "lifestyle_sections": lifestyle_sections,
+            "behavior": source.behavior_metrics if source else None,
+            "context_reason": context_reason,
             "saved": m.SavedCandidate.objects.filter(owner=actor, candidate=profile).exists()}
 
 
 def candidate_rows(actor, area="", rent=None, context=None, include_decided=False):
     if not actor.is_published or not actor.completed:
         return []
-    candidates = Profile.objects.filter(is_published=True).exclude(pk=actor.pk).select_related("answers", "living")
-    if not settings.DEBUG:
-        candidates = candidates.filter(is_synthetic=False)
+    candidates = recommendable_profiles().exclude(pk=actor.pk).select_related("answers", "living", "sample_source")
     if not include_decided:
         candidates = candidates.exclude(pk__in=actor.swipes.values("target_id"))
     rows = []
@@ -189,19 +200,30 @@ def preferences(request):
 def hub(request):
     actor = request.actor
     conversations = []
+    connected_ids = set()
+    blocked_ids = s.blocked_profile_ids(actor)
     for connection in m.Connection.objects.filter(Q(low=actor) | Q(high=actor), active=True).select_related("low", "high"):
-        if s.is_blocked(connection.low, connection.high):
+        other = connection.other(actor)
+        if other.pk in blocked_ids:
             continue
         conversation = connection.conversations.filter(generation=connection.generation).first()
         if conversation:
-            conversations.append({"conversation": conversation, "other": connection.other(actor)})
-    incoming = []
-    for swipe in m.SwipeDecision.objects.filter(target=actor, choice="like").select_related("actor__answers", "actor__living"):
-        try:
-            if not m.Connection.objects.filter(s.pair_query(actor, swipe.actor), active=True).exists():
-                incoming.append(candidate_card(actor, swipe.actor))
-        except s.DomainError:
+            connected_ids.add(other.pk)
+            conversations.append({"conversation": conversation, "other": other,
+                                  "last_message": conversation.messages.select_related("sender").order_by("-pk").first()})
+    available_ids = set(recommendable_profiles().values_list("pk", flat=True))
+    outgoing = []
+    for swipe in m.SwipeDecision.objects.filter(actor=actor, choice=m.SwipeDecision.LIKE).select_related("target").order_by("-updated_at"):
+        if (swipe.target_id in connected_ids or swipe.target_id not in available_ids
+                or swipe.target_id in blocked_ids):
             continue
+        outgoing.append({"profile": swipe.target, "sent_at": swipe.updated_at})
+    incoming = []
+    for swipe in m.SwipeDecision.objects.filter(target=actor, choice=m.SwipeDecision.LIKE).select_related("actor").order_by("-updated_at"):
+        if (swipe.actor_id in connected_ids or not swipe.actor.is_published
+                or swipe.actor_id in blocked_ids):
+            continue
+        incoming.append({"profile": swipe.actor, "sent_at": swipe.updated_at})
     invites = []
     for workspace in m.SearchWorkspace.objects.filter(invitee=actor, status="pending").select_related("inviter"):
         try:
@@ -215,16 +237,20 @@ def hub(request):
             workspaces.append(s.workspace_for(actor, membership.workspace_id))
         except s.DomainError:
             continue
-    return render(request, "journey/hub.html", {"conversations": conversations, "incoming": incoming, "invites": invites, "workspaces": workspaces})
+    return render(request, "journey/hub.html", {"conversations": conversations, "outgoing": outgoing,
+                                                "incoming": incoming, "invites": invites, "workspaces": workspaces,
+                                                "widget_client_id": uuid.uuid4()})
 
 
 @page
 def chat(request, conversation_id):
-    conversation = s.conversation_for(request.actor, conversation_id)
+    conversation = s.conversation_for(request.actor, conversation_id, allow_pending=True)
+    if not conversation.connection.active:
+        return redirect(f"{reverse('journey:hub')}?chat={conversation.connection.other(request.actor).pk}")
     s.checkpoint(request.actor, request.path)
     other = conversation.connection.other(request.actor)
     result = score_profiles(request.actor, other)
-    opener = f"Chào {other.name}, mình muốn trao đổi thêm về {result.similarities[0].lower()} và kế hoạch tìm nhà. Bạn thấy thế nào?" if result.similarities else f"Chào {other.name}, mình muốn tìm hiểu nhu cầu ở ghép của bạn. Mình cùng trao đổi nhé?"
+    opener = f"Chào {other.name}, một điểm hợp của chúng ta là: {result.similarities[0]} Mình muốn trao đổi thêm về kế hoạch tìm nhà. Bạn thấy thế nào?" if result.similarities else f"Chào {other.name}, mình muốn tìm hiểu nhu cầu ở ghép của bạn. Mình cùng trao đổi nhé?"
     facts = []
     for fact in conversation.facts.select_related("source", "author").order_by("-pk"):
         consent_ids = set(fact.consents.filter(version=fact.version).values_list("member_id", flat=True))
@@ -247,7 +273,7 @@ def chat(request, conversation_id):
 
 @page
 def messages(request, conversation_id):
-    conversation = s.conversation_for(request.actor, conversation_id)
+    conversation = s.conversation_for(request.actor, conversation_id, allow_pending=True)
     query = conversation.messages.select_related("sender")
     before = number(request.GET["before"]) if request.GET.get("before") else None
     after = number(request.GET.get("after"), 0)
@@ -256,6 +282,20 @@ def messages(request, conversation_id):
     else:
         rows = list(query.filter(pk__gt=after).order_by("pk")[:50])
     return JsonResponse({"messages": [{"id": row.pk, "sender": row.sender.name, "mine": row.sender_id == request.actor.pk, "body": row.body, "created_at": row.created_at.isoformat()} for row in rows], "next_before": rows[0].pk if len(rows) == 50 else None})
+
+
+@page
+def pair_messages(request, profile_id):
+    target = profile_by_id(profile_id)
+    connection, conversation = s.pair_chat_for(request.actor, target)
+    after = number(request.GET.get("after"), 0)
+    if after < 0:
+        raise s.DomainError("Mã tin nhắn không hợp lệ.")
+    rows = list(conversation.messages.select_related("sender").filter(pk__gt=after).order_by("pk")[:50]) if conversation else []
+    return JsonResponse({"messages": [{"id": row.pk, "sender": row.sender.name,
+                                      "mine": row.sender_id == request.actor.pk, "body": row.body,
+                                      "created_at": row.created_at.isoformat()} for row in rows],
+                         "connected": connection.active})
 
 
 def choice_context(workspace):
@@ -431,6 +471,8 @@ def perform(request, action):
             conversation = s.decide(actor, target, action)
             if conversation:
                 destination = reverse("journey:chat", args=[conversation.pk])
+            elif action == "like":
+                destination = f"{reverse('journey:hub')}?chat={target.pk}"
         elif action == "save-candidate":
             s.eligible_target(actor, target)
             if yes_no(data, "saved"):
@@ -478,11 +520,17 @@ def perform(request, action):
             living.version += 1
         living.save()
         destination = reverse("journey:preferences")
+    elif action == "message" and data.get("target"):
+        target = profile_by_id(data.get("target"))
+        s.send_pair_message(actor, target, text(data, "body", 4000, True), data.get("client_id"))
+        destination = reverse("journey:hub")
     elif action in ("message", "workspace-invite", "fact-pin", "fact-edit", "fact-consent"):
-        conversation = s.conversation_for(actor, number(data.get("conversation")), lock=True)
-        destination = reverse("journey:chat", args=[conversation.pk])
+        conversation = s.conversation_for(actor, number(data.get("conversation")), lock=True,
+                                          allow_pending=action == "message")
+        destination = (reverse("journey:chat", args=[conversation.pk]) if conversation.connection.active
+                       else f"{reverse('journey:hub')}?chat={conversation.connection.other(actor).pk}")
         if action == "message":
-            s.send_message(actor, conversation.pk, text(data, "body", 4000, True), data.get("client_id"))
+            s.send_message(actor, conversation.pk, text(data, "body", 4000, True), data.get("client_id"), allow_pending=True)
         elif action == "workspace-invite":
             workspace = s.invite_workspace(actor, conversation.pk, text(data, "title", 120))
             if workspace.status == "active":

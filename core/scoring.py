@@ -23,6 +23,14 @@ BEDTIMES = (22, 23, .5, 2)
 TIER = {"B1": 1.8, "A1": 1.8, "F1": 1.8, "D1": 1.8,
         "A2": 1.3, "A3": 1.3, "C1": 1.3, "D2": 1.3, "D3": 1.3}
 CALIBRATION = ((.30, 0), (.509, 32), (.613, 50), (.710, 78), (.970, 96), (1.0, 100))
+REASON_TITLES = {
+    "A1": "Giờ ngủ", "A2": "Giờ làm việc", "A3": "Làm việc tại nhà",
+    "B1": "Mức độ sạch sẽ", "B2": "Dọn không gian chung",
+    "C1": "Không gian riêng", "C2": "Cách xử lý bất đồng", "C3": "Mức độ thân thiết",
+    "D1": "Thuốc lá và vape", "D2": "Dị ứng thú cưng", "D3": "Nuôi thú cưng",
+    "D4": "Tiếng ồn", "D5": "Điều kiện khi ngủ", "E1": "Nấu ăn",
+    "F1": "Khách đến chơi", "F2": "Chia chi phí chung",
+}
 
 
 @dataclass
@@ -93,6 +101,14 @@ def _calibrate(raw):
     return 99
 
 
+def _answer_reason(key, left_answer, right_answer):
+    options = QUESTION_MAP[key]["options"]
+    title = REASON_TITLES[key]
+    if left_answer == right_answer:
+        return f"{title}: cả hai chọn “{options[left_answer]}”."
+    return f"{title}: bạn “{options[left_answer]}”, người ấy “{options[right_answer]}”."
+
+
 def score_profiles(left, right):
     if not _valid_answers(left) or not _valid_answers(right):
         return MatchResult(None, {}, [], [], ["Cần hoàn thành khảo sát 16 câu để tính điểm."])
@@ -105,14 +121,14 @@ def score_profiles(left, right):
     by_group = defaultdict(lambda: [0.0, 0.0])
     details = []
     base = .08 * .5  # S1-S4 unavailable; the source specifies 0.5 for missing values.
-    for key, group, label, _ in QUESTIONS:
+    for key, group, _, _ in QUESTIONS:
         sim = cross_pet if key in ("D2", "D3") else _similarity(key, a[key], b[key])
         effective = max(0, 1 - TIER[key] * (1 - sim)) if key in TIER else sim
         weight = QUESTION_WEIGHTS[key]
         base += weight * effective
         by_group[group][0] += weight * effective
         by_group[group][1] += weight
-        details.append((weight * effective, weight * (1 - effective), sim, label))
+        details.append((weight * effective, weight * (1 - effective), sim, key))
 
     # Available profile budgets support the spec's <=20% budget-alignment bonus.
     midpoint_left = (left.rent_min + left.rent_max) / 2
@@ -120,9 +136,9 @@ def score_profiles(left, right):
     budget_bonus = .03 if midpoint_left and midpoint_right and abs(midpoint_left - midpoint_right) / max(midpoint_left, midpoint_right) <= .20 else 0
     raw = base + budget_bonus - _penalty(a, b)
     groups = {key: round(100 * weighted / total) for key, (weighted, total) in by_group.items()}
-    similarities = [label for _, _, sim, label in sorted(details, reverse=True) if sim >= .8][:3]
-    differences = [label for _, _, sim, label in sorted(details, key=lambda item: item[1], reverse=True) if sim < .8][:1]
-    warnings = ["Điểm ước tính; chỉ số hành vi chưa có dữ liệu."]
+    similarities = [_answer_reason(key, a[key], b[key]) for _, _, sim, key in sorted(details, reverse=True) if sim >= .8][:3]
+    differences = [_answer_reason(key, a[key], b[key]) for _, _, sim, key in sorted(details, key=lambda item: item[1], reverse=True) if sim < .8][:1]
+    warnings = []
     if _penalty(a, b):
         warnings.append("Một số thói quen giao nhau có thể gây xung đột; hãy trao đổi trước khi quyết định.")
     return MatchResult(_calibrate(raw), groups, similarities, differences, warnings)
