@@ -31,7 +31,6 @@ together_patterns = ([
 urlpatterns = [
     # Authentication & Account Lifecycle
     path("", views.about, name="home"),
-    path("about/", views.about, name="about"),
     path("register/", account.register, name="register"),
     path("login/", account.login_view, name="login"),
     path("logout/", account.logout_view, name="logout"),

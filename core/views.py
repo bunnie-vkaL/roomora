@@ -128,12 +128,6 @@ from core.web.chat import chat, hub, messages, pair_messages
 # Authentication and Public Page Views
 # ==============================================================================
 
-def home(request):
-    if request.user.is_authenticated:
-        return redirect("dashboard")
-    return render(request, "core/home.html")
-
-
 def about(request):
     profile = getattr(request.user, "profile", None) if request.user.is_authenticated else None
     selected_area = request.GET.get("area", "")
@@ -152,7 +146,7 @@ def about(request):
         "profile": profile,
         "can_recommend": can_recommend,
         "recommendations": recommendations,
-        "show_area_guide": request.path == "/about/",
+        "show_area_guide": True,
     })
 
 

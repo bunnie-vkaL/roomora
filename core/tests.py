@@ -127,13 +127,13 @@ class FlowTests(TestCase):
         self.assertRedirects(self.client.get("/dashboard/"), "/roommates/")
 
     def test_about_shows_area_recommendations_only_for_selected_profile_area(self):
-        self.assertContains(self.client.get("/about/"), "Gợi ý theo khu vực")
+        self.assertContains(self.client.get("/"), "Gợi ý theo khu vực")
         actor = profile("area-a@test.com")
         other = profile("area-b@test.com")
         self.client.force_login(actor.user)
-        response = self.client.get("/about/?area=C%E1%BA%A7u%20Gi%E1%BA%A5y")
+        response = self.client.get("/?area=C%E1%BA%A7u%20Gi%E1%BA%A5y")
         self.assertContains(response, other.name)
-        response = self.client.get("/about/?area=Ba%20%C4%90%C3%ACnh")
+        response = self.client.get("/?area=Ba%20%C4%90%C3%ACnh")
         self.assertNotContains(response, other.name)
         self.assertContains(response, "Cập nhật khu vực")
 
