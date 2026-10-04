@@ -14,9 +14,9 @@
 <section class="about-process" aria-labelledby="about-process-title">
   <p class="eyebrow">Cách hoạt động</p><h2 id="about-process-title">Từ hiểu bản thân đến chọn người phù hợp.</h2>
   <div class="about-process-grid">
-    <article><span>01</span><h3>Hoàn thiện hồ sơ</h3><p>Chọn khu vực, khoảng tiền thuê và giới thiệu ngắn về bạn.</p></article>
-    <article><span>02</span><h3>Trả lời lifestyle</h3><p>16 câu hỏi về nhịp sinh hoạt, không gian chung và những điều nên trao đổi.</p></article>
-    <article><span>03</span><h3>Xem gợi ý, rồi kết nối</h3><p>Chat chỉ mở khi cả hai cùng muốn tìm hiểu. Sau đó bạn có thể cùng so sánh căn và chi phí.</p></article>
+    <a class="about-process-card" href="{% url 'profile_edit' %}"><span>01</span><h3>Hoàn thiện hồ sơ</h3><p>Chọn khu vực, khoảng tiền thuê và giới thiệu ngắn về bạn.</p><span class="about-process-action">Đến hồ sơ →</span></a>
+    <a class="about-process-card" href="{% url 'questionnaire' %}"><span>02</span><h3>Trả lời lifestyle</h3><p>16 câu hỏi về nhịp sinh hoạt, không gian chung và những điều nên trao đổi.</p><span class="about-process-action">Trả lời câu hỏi →</span></a>
+    <a class="about-process-card" href="{% url 'journey:discover' %}"><span>03</span><h3>Xem gợi ý, rồi kết nối</h3><p>Bạn có thể nhắn tin trước khi hai bên đồng ý kết nối, rồi cùng so sánh căn và chi phí.</p><span class="about-process-action">Xem gợi ý →</span></a>
   </div>
 </section>
 

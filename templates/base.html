@@ -18,7 +18,6 @@
           <a href="{% url 'about' %}">Giới thiệu</a>
           <a href="{% url 'dashboard' %}">Gợi ý cho bạn</a>
           {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a>{% endif %}
-          <a href="{% url 'profile_edit' %}">Hồ sơ</a>
           {% if user.is_staff %}
             <a href="{% url 'pilot_results' %}">Pilot</a>
           {% endif %}
@@ -29,13 +28,13 @@
       </nav>
       <div class="nav-actions">
         {% if user.is_authenticated %}
-          <span class="avatar" id="header-avatar" title="{{ user.profile.name|default:user.email }}">
+          <a href="{% url 'profile_edit' %}" class="avatar" id="header-avatar" title="{{ user.profile.name|default:user.email }}">
             {% if user.profile.avatar %}
               <img src="{{ user.profile.avatar.url }}" alt="{{ user.profile.name|default:user.email }}">
             {% else %}
               <span class="avatar-letter">{{ user.profile.name|default:user.email|slice:':1'|upper }}</span>
             {% endif %}
-          </span>
+          </a>
           <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
             <button class="link-button">Đăng xuất</button>
@@ -58,7 +57,6 @@
       <a href="{% url 'about' %}">Giới thiệu</a>
       <a href="{% url 'dashboard' %}">Gợi ý</a>
       {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a>{% endif %}
-      <a href="{% url 'profile_edit' %}">Hồ sơ</a>
     </nav>
   {% endif %}
 </body>
