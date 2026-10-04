@@ -4,7 +4,7 @@ from django.urls import include, path
 from . import views
 from .web import account, chat, legacy_discovery, pilot
 
-# Collaborative Roommate Workspace endpoints (/together/...)
+# Collaborative Roommate Workspace endpoints (/roommate/...)
 together_patterns = ([
     path("", chat.hub, name="hub"),
     path("discover/", views.modern_discover, name="discover"),
@@ -48,7 +48,7 @@ urlpatterns = [
     path("questionnaire/", account.questionnaire, name="questionnaire"),
 
     # Collaborative Roommate Workspace
-    path("together/", include(together_patterns, namespace="journey")),
+    path("roommate/", include(together_patterns, namespace="journey")),
 
     # Legacy Pilot 1 Endpoints
     path("discover/", legacy_discovery.discover, name="discover"),
