@@ -1,1 +1,42 @@
-{% extends 'base.html' %}{% block content %}<section class="question-book"><div class="question-progress" aria-label="Tiến độ khảo sát"><span style="width:{% widthratio step total_steps 100 %}%"></span></div><div class="question-meta"><span>Khảo sát lifestyle</span><span>{{ step }} / {{ total_steps }} câu</span></div><div class="question-page"><p class="eyebrow">{% if question.1 == 'schedule' %}Nhịp sinh hoạt{% elif question.1 == 'cleanliness' %}Vệ sinh chung{% elif question.1 == 'social' %}Riêng tư & giao tiếp{% elif question.1 == 'environment' %}Không gian sống{% elif question.1 == 'cooking' %}Nấu ăn{% else %}Khách & chi phí{% endif %}</p><h1>{{ question.2 }}</h1><p class="question-help">Chọn câu trả lời gần với thói quen thực tế của bạn nhất. Câu trả lời sẽ tự lưu khi bạn chuyển trang.</p><form method="post">{% csrf_token %}<input type="hidden" name="step" value="{{ step }}"><div class="answer-list">{{ form }}</div><div class="question-actions">{% if step > 1 %}<button class="secondary" type="submit" name="action" value="previous">← Câu trước</button>{% else %}<span></span>{% endif %}<button class="gold" type="submit" name="action" value="next">{% if step == total_steps %}Xuất bản hồ sơ{% else %}Câu tiếp theo →{% endif %}</button></div></form></div><p class="question-status">Đã lưu {{ answered_count }} / {{ total_steps }} câu trả lời</p></section>{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Cách sống của bạn · Roomora{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'survey.css' %}">{% endblock %}
+{% block body_class %}survey-screen{% endblock %}
+{% block content %}
+<section class="survey-layout" aria-labelledby="survey-title">
+  <aside class="survey-overview">
+    <p class="survey-kicker">HỒ SƠ · LIFESTYLE</p>
+    <h2>Cách sống của bạn.</h2>
+    <p>Để gợi ý người ở cùng hợp nhịp.</p>
+    <div class="survey-progress" role="progressbar" aria-label="Câu trả lời đã lưu" aria-valuenow="{{ answered_count }}" aria-valuemin="0" aria-valuemax="{{ total_steps }}"><span style="width:{% widthratio answered_count total_steps 100 %}%"></span></div>
+    <p class="survey-saved">Đã lưu <strong>{{ answered_count }}/{{ total_steps }}</strong> câu</p>
+    <nav class="survey-topics" aria-label="Các nhóm câu hỏi">
+      {% for group in survey_groups %}<a href="?step={{ group.step }}" {% if group.current %}aria-current="step"{% endif %}><span>{{ group.title }}</span><span>{{ group.answered }}/{{ group.total }}<span class="sr-only"> câu đã lưu</span></span></a>{% endfor %}
+    </nav>
+    <p class="survey-footnote">Bạn có thể quay lại sửa. Đáp án chỉ được lưu khi chọn “Tiếp tục” hoặc “Xuất bản hồ sơ”.</p>
+  </aside>
+  <div class="survey-question">
+    <div class="survey-step"><span>{{ group_title }}</span><span>Câu {{ step }}/{{ total_steps }}</span></div>
+    <form method="post">
+      {% csrf_token %}<input type="hidden" name="step" value="{{ step }}">
+      <fieldset class="survey-fieldset">
+        <legend id="survey-title">{{ question.2 }}</legend>
+        <p id="survey-help">Chọn điều gần với bạn nhất.</p>
+        {% for field in form %}
+          {% if field.errors %}<div class="survey-error" role="alert" id="survey-error">{{ field.errors }}</div>{% endif %}
+          <div class="survey-options" aria-describedby="survey-help{% if field.errors %} survey-error{% endif %}">
+            {% for radio in field %}<label class="survey-option" for="{{ radio.id_for_label }}">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endfor %}
+          </div>
+        {% endfor %}
+      </fieldset>
+      <div class="survey-actions">
+        {% if step > 1 %}<a class="survey-back" href="?step={{ previous_step }}">← Quay lại</a>{% else %}<a class="survey-back" href="{% url 'profile_edit' %}">← Hồ sơ</a>{% endif %}
+        <button type="submit" name="action" value="next">{% if step == total_steps %}Xuất bản hồ sơ{% else %}Tiếp tục →{% endif %}</button>
+      </div>
+      <p class="survey-save-note">Lưu câu trả lời khi tiếp tục. Bạn có thể hoàn thành sau.</p>
+      {% if step == total_steps %}<p class="survey-publish-note">Xuất bản để hồ sơ xuất hiện trong gợi ý. Bạn cần trả lời đủ 16 câu.</p>{% endif %}
+    </form>
+  </div>
+</section>
+{% endblock %}

@@ -11,6 +11,7 @@ from unittest.mock import patch
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, connection, connections, transaction
 from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
@@ -19,6 +20,116 @@ from core.models import ConnectionRequest, ImportedSampleProfile
 from core.tests import profile
 from . import forms as f, models as m, services as s
 from .costs import calculate_shared_costs, split_amount
+
+
+@override_settings(DEBUG=False, PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class DiscoveryQueryTests(TestCase):
+    def setUp(self):
+        self.actor = profile("query-actor@test.com")
+
+    def test_switching_view_preserves_filters_cursor_and_ranked_profiles(self):
+        from urllib.parse import parse_qs, urlsplit
+        for index in range(25):
+            profile(f"switch-{index}@test.com")
+        self.client.force_login(self.actor.user)
+        response = self.client.get(reverse("journey:discover"), {"view": "list", "area": "Cầu Giấy", "rent": "4000000"}, secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "person-list-card")
+        self.assertNotContains(response, "data-swipe-deck")
+        second = self.client.get(reverse("journey:discover") + response.context["next_url"], secure=True)
+        expected = [row["profile"].pk for row in second.context["cards"]]
+        switch_query = parse_qs(urlsplit(second.context["swipe_url"]).query)
+        self.assertEqual(switch_query["view"], ["swipe"])
+        self.assertEqual(switch_query["area"], ["Cầu Giấy"])
+        self.assertEqual(switch_query["rent"], ["4000000"])
+        self.assertTrue(switch_query["cursor"])
+        swipe = self.client.get(reverse("journey:discover") + second.context["swipe_url"], secure=True)
+        self.assertEqual(swipe.status_code, 200)
+        self.assertContains(swipe, "data-swipe-deck")
+        self.assertEqual([row["profile"].pk for row in swipe.context["cards"]], expected)
+        self.assertEqual([row["score"] for row in swipe.context["cards"]], [row["score"] for row in second.context["cards"]])
+        reset = parse_qs(urlsplit(swipe.context["all_areas_url"]).query)
+        self.assertNotIn("cursor", reset)
+        self.assertNotIn("area", reset)
+        self.assertEqual(reset["view"], ["swipe"])
+        self.assertEqual(reset["rent"], ["4000000"])
+
+    def test_view_preference_is_remembered_and_invalid_mode_rejected(self):
+        self.client.force_login(self.actor.user)
+        self.assertEqual(self.client.get(reverse("journey:discover"), secure=True).context["view_mode"], "list")
+        self.client.get(reverse("journey:discover"), {"view": "swipe"}, secure=True)
+        self.assertEqual(self.client.get(reverse("journey:discover"), secure=True).context["view_mode"], "swipe")
+        self.assertEqual(self.client.get(reverse("journey:discover"), {"view": "unsupported"}, secure=True).status_code, 400)
+
+    def test_discovery_expands_only_visible_cards_and_preserves_cursor_order(self):
+        from . import views
+        for index in range(25):
+            profile(f"page-{index}@test.com")
+        self.client.force_login(self.actor.user)
+        expected = [row["profile"].pk for row in views.candidate_rows(self.actor)]
+        with patch.object(views, "candidate_card", wraps=views.candidate_card) as expand:
+            first = self.client.get(reverse("journey:discover"), secure=True)
+            self.assertEqual(first.status_code, 200)
+            self.assertEqual(expand.call_count, 10)
+        self.assertEqual([row["profile"].pk for row in first.context["cards"]], expected[:10])
+        with patch.object(views, "candidate_card", wraps=views.candidate_card) as expand:
+            second = self.client.get(reverse("journey:discover"), {"cursor": first.context["next_cursor"]}, secure=True)
+            self.assertEqual(second.status_code, 200)
+            self.assertEqual(expand.call_count, 10)
+        self.assertEqual([row["profile"].pk for row in second.context["cards"]], expected[10:20])
+
+    def test_query_count_does_not_grow_per_candidate(self):
+        from .views import candidate_rows
+        from core.models import Profile
+
+        counts = []
+        for start, stop in ((0, 5), (5, 25)):
+            for index in range(start, stop):
+                profile(f"query-{index}@test.com")
+            actor = Profile.objects.select_related("answers").get(pk=self.actor.pk)
+            with CaptureQueriesContext(connection) as queries:
+                rows = candidate_rows(actor)
+            self.assertEqual(len(rows), stop)
+            counts.append(len(queries))
+            self.assertEqual([row["profile"].pk for row in rows], sorted(row["profile"].pk for row in rows))
+        self.assertEqual(counts, [4, 4])
+
+    def test_bulk_discovery_matches_direct_eligibility_and_rechecks_blocks(self):
+        from .views import candidate_rows
+        from core.models import recommendable_profiles
+
+        saved = profile("saved@test.com")
+        active = profile("active@test.com")
+        blocked = profile("blocked@test.com")
+        legacy = profile("legacy@test.com")
+        profile("hidden@test.com", is_published=False)
+        profile("other-area@test.com", areas=["Thanh Xuân"])
+        profile("expensive@test.com", rent_min=6000000, rent_max=7000000)
+        profile("incomplete@test.com", values={})
+        profile("old-survey@test.com", questionnaire_version="old")
+        profile("synthetic@test.com", is_synthetic=True)
+        m.SavedCandidate.objects.create(owner=self.actor, candidate=saved)
+        m.UserBlock.objects.create(actor=blocked, target=self.actor)
+        ConnectionRequest.objects.create(sender=self.actor, recipient=legacy, status="blocked")
+        m.Connection.objects.create(low=self.actor, high=active, active=True)
+
+        expected = {}
+        for target in recommendable_profiles().exclude(pk=self.actor.pk):
+            try:
+                expected[target.pk] = s.eligible_target(self.actor, target).score
+            except s.DomainError:
+                pass
+        rows = candidate_rows(self.actor, include_decided=True)
+        self.assertEqual({row["profile"].pk: row["score"] for row in rows}, expected)
+        self.assertEqual(set(expected), {saved.pk, active.pk})
+        self.assertTrue(next(row for row in rows if row["profile"].pk == saved.pk)["saved"])
+        self.assertEqual([row["profile"].pk for row in candidate_rows(self.actor)], [saved.pk])
+        self.assertEqual(candidate_rows(self.actor, rent=6000000), [])
+        self.assertEqual(candidate_rows(self.actor, area="Thanh Xuân"), [])
+        m.UserBlock.objects.create(actor=self.actor, target=saved)
+        self.assertEqual(candidate_rows(self.actor), [])
+        with self.assertRaises(s.DomainError):
+            s.eligible_target(self.actor, saved)
 
 
 class CostTests(SimpleTestCase):
@@ -207,6 +318,62 @@ class JourneyTests(TestCase):
         self.post(self.a, "like", target=self.b.pk)
         self.assertEqual(m.OutboxEvent.objects.count(), 1)
         self.assertEqual(m.SwipeDecision.objects.count(), 1)
+
+    def test_pending_like_cannot_create_chat_from_pair_send_or_polling(self):
+        s.decide(self.a, self.b, "like")
+        for actor, target in ((self.a, self.b), (self.b, self.a)):
+            self.client.force_login(actor.user)
+            self.assertEqual(self.client.get(reverse("journey:pair-messages", args=[target.pk])).status_code, 403)
+            self.assertEqual(self.post(actor, "message", target=target.pk,
+                                       body="Pending message", client_id=uuid.uuid4()).status_code, 403)
+            with self.assertRaises(s.DomainError):
+                s.send_pair_message(actor, target, "Direct service call", uuid.uuid4())
+            hub = self.client.get(reverse("journey:hub"))
+            self.assertNotContains(hub, f'data-chat-person="{target.pk}"')
+        self.assertFalse(m.Conversation.objects.exists())
+        self.assertFalse(m.Message.objects.exists())
+
+    def test_legacy_pending_history_is_inaccessible_until_mutual_consent(self):
+        s.decide(self.a, self.b, "like")
+        connection = m.Connection.objects.get()
+        conversation = s.ensure_current_conversation(connection)
+        message = m.Message.objects.create(conversation=conversation, sender=self.a,
+                                           client_id=uuid.uuid4(), body="LEGACY-PENDING-HISTORY")
+        for actor, target in ((self.a, self.b), (self.b, self.a)):
+            self.client.force_login(actor.user)
+            for route, identifier in (("chat", conversation.pk), ("messages", conversation.pk),
+                                      ("pair-messages", target.pk)):
+                response = self.client.get(reverse(f"journey:{route}", args=[identifier]))
+                self.assertEqual(response.status_code, 403)
+                self.assertNotIn(b"LEGACY-PENDING-HISTORY", response.content)
+            self.assertEqual(self.post(actor, "message", conversation=conversation.pk,
+                                       body="Denied", client_id=uuid.uuid4()).status_code, 403)
+            with self.assertRaises(s.DomainError):
+                s.send_message(actor, conversation.pk, "Denied directly", uuid.uuid4())
+        self.assertTrue(m.Message.objects.filter(pk=message.pk).exists())
+        matched = s.decide(self.b, self.a, "like")
+        self.assertEqual(matched.pk, conversation.pk)
+        for actor, target in ((self.a, self.b), (self.b, self.a)):
+            self.client.force_login(actor.user)
+            response = self.client.get(reverse("journey:pair-messages", args=[target.pk]))
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["messages"][0]["body"], "LEGACY-PENDING-HISTORY")
+        self.assertEqual(m.Conversation.objects.count(), 1)
+
+    def test_pair_chat_allows_mutual_messages_but_revokes_on_disconnect(self):
+        conversation = self.matched()
+        client_id = uuid.uuid4()
+        for _ in range(2):
+            self.assertEqual(self.post(self.a, "message", target=self.b.pk,
+                                       body="Mutual message", client_id=client_id).status_code, 200)
+        self.assertEqual(conversation.messages.count(), 1)
+        s.disconnect(self.b, conversation.connection_id)
+        for actor, target in ((self.a, self.b), (self.b, self.a)):
+            self.client.force_login(actor.user)
+            self.assertEqual(self.client.get(reverse("journey:pair-messages", args=[target.pk])).status_code, 403)
+            self.assertEqual(self.post(actor, "message", target=target.pk,
+                                       body="After disconnect", client_id=uuid.uuid4()).status_code, 403)
+        self.assertEqual(conversation.messages.count(), 1)
 
     def test_undo_restores_previous_decision_but_cannot_undo_a_match(self):
         s.decide(self.a, self.b, "pass")
@@ -648,7 +815,10 @@ class JourneyTests(TestCase):
             response = self.client.get(reverse("journey:image", args=[saved.pk]))
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response["Cache-Control"], "private, no-store")
-            self.assertEqual(b"".join(response.streaming_content), stream.getvalue())
+            served = b"".join(response.streaming_content)
+            with Image.open(io.BytesIO(served)) as decoded:
+                self.assertEqual(decoded.size, (32, 20))
+                self.assertEqual(decoded.getpixel((0, 0)), (204, 204, 204))
             self.assertEqual(self.post(self.a, "image-pin", room=room.pk, image=saved.pk, x=.5, y=.25, question="Nắng sáng?").status_code, 200)
             self.assertContains(self.client.get(reverse("journey:room", args=[room.pk])), "left:50.0%;top:25.0%")
             self.client.force_login(self.b.user)
@@ -656,6 +826,75 @@ class JourneyTests(TestCase):
             self.assertEqual(self.post(self.a, "image-pin", room=room.pk, image=saved.pk, x=2, y=.5, question="X").status_code, 400)
             corrupt = SimpleUploadedFile("evil.png", b"not an image", content_type="image/png")
             self.assertEqual(self.post(self.a, "image-upload", room=room.pk, image=corrupt).status_code, 400)
+
+    def test_person_image_count_spans_rooms_and_retry_does_not_spend_twice(self):
+        first = self.known_room()
+        second = self.known_room()
+        other_room = m.RoomOption.objects.create(owner=self.b, title="Căn riêng", area="Cầu Giấy")
+        stream = io.BytesIO()
+        Image.new("RGB", (10, 10), "blue").save(stream, format="PNG")
+        def upload():
+            return SimpleUploadedFile("room.png", stream.getvalue(), content_type="image/png")
+        with tempfile.TemporaryDirectory() as directory, override_settings(
+            ROOMORA_PRIVATE_MEDIA_ROOT=Path(directory), ROOMORA_PERSON_IMAGE_COUNT=1, ROOMORA_PERSON_IMAGE_BYTES=0):
+            key = uuid.uuid4()
+            for _ in range(2):
+                self.assertEqual(self.post(self.a, "image-upload", room=first.pk, image=upload(), mutation_key=key).status_code, 200)
+            self.assertEqual(first.images.count(), 1)
+            receipts = m.MutationReceipt.objects.count()
+            self.assertEqual(self.post(self.a, "image-upload", room=second.pk, image=upload()).status_code, 409)
+            self.assertEqual(second.images.count(), 0)
+            self.assertEqual(m.MutationReceipt.objects.count(), receipts)
+            self.assertEqual(self.post(self.b, "image-upload", room=other_room.pk, image=upload()).status_code, 200)
+            self.assertEqual(other_room.images.count(), 1)
+
+    def test_person_byte_limit_counts_normalized_files_at_exact_boundary(self):
+        room = self.known_room()
+        stream = io.BytesIO()
+        Image.new("RGB", (10, 10), "blue").save(stream, format="PNG")
+        def upload():
+            return SimpleUploadedFile("room.png", stream.getvalue(), content_type="image/png")
+        form = f.ImageUploadForm({}, {"image": upload()})
+        self.assertTrue(form.is_valid())
+        size = form.cleaned_data["image"].size
+        with tempfile.TemporaryDirectory() as directory, override_settings(
+            ROOMORA_PRIVATE_MEDIA_ROOT=Path(directory), ROOMORA_PERSON_IMAGE_COUNT=20, ROOMORA_PERSON_IMAGE_BYTES=size * 2):
+            for _ in range(2):
+                self.assertEqual(self.post(self.a, "image-upload", room=room.pk, image=upload()).status_code, 200)
+            self.assertEqual(self.post(self.a, "image-upload", room=room.pk, image=upload()).status_code, 409)
+            self.assertEqual(room.images.count(), 2)
+            self.assertTrue(all(Path(image.image.path).exists() for image in room.images.all()))
+
+    def test_missing_existing_file_prevents_understating_person_usage(self):
+        room = self.known_room()
+        with tempfile.TemporaryDirectory() as directory, override_settings(
+            ROOMORA_PRIVATE_MEDIA_ROOT=Path(directory), ROOMORA_PERSON_IMAGE_COUNT=20, ROOMORA_PERSON_IMAGE_BYTES=8 * 1024 * 1024):
+            m.RoomImage.objects.create(room=room, creator=self.a, image="rooms/missing.png")
+            stream = io.BytesIO()
+            Image.new("RGB", (10, 10), "blue").save(stream, format="PNG")
+            uploaded = SimpleUploadedFile("room.png", stream.getvalue(), content_type="image/png")
+            self.assertEqual(self.post(self.a, "image-upload", room=room.pk, image=uploaded).status_code, 503)
+            self.assertEqual(room.images.count(), 1)
+            self.assertIn("20 ảnh", f.ImageUploadForm().fields["image"].help_text)
+            self.assertIn("8 MB", f.ImageUploadForm().fields["image"].help_text)
+
+    def test_image_capacity_rejection_rolls_back_mutation_and_keeps_room(self):
+        room = self.known_room()
+        stream = io.BytesIO()
+        Image.new("RGB", (32, 20), "blue").save(stream, format="PNG")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with override_settings(MEDIA_ROOT=root / "public", ROOMORA_PRIVATE_MEDIA_ROOT=root / "private",
+                ROOMORA_DATA_ROOT=root / "data", ROOMORA_UPLOAD_BUDGET_BYTES=1,
+                ROOMORA_UPLOAD_FREE_RESERVE_BYTES=0):
+                before = m.MutationReceipt.objects.count()
+                image = SimpleUploadedFile("room.png", stream.getvalue(), content_type="image/png")
+                response = self.post(self.a, "image-upload", room=room.pk, image=image)
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(room.images.count(), 0)
+                self.assertEqual(m.MutationReceipt.objects.count(), before)
+                self.assertFalse(list((root / "private").rglob("*")))
+                self.assertEqual(self.client.get(reverse("journey:room", args=[room.pk])).status_code, 200)
 
     def test_upload_retries_do_not_duplicate_and_unexpected_files_are_rejected(self):
         room = self.known_room()
@@ -695,6 +934,38 @@ class ConcurrentJourneyTests(TransactionTestCase):
                 connections.close_all()
         with ThreadPoolExecutor(max_workers=len(operations)) as executor:
             return list(executor.map(worker, operations))
+
+    def test_free_beta_immediate_transactions_serialize_person_upload_budget(self):
+        from django.core.files.base import ContentFile
+        from .upload_limits import check_room_image_budget
+        if connection.vendor != "sqlite":
+            self.skipTest("Exercises the free-beta SQLite transaction mode.")
+        original_options = connection.settings_dict["OPTIONS"]
+        connection.close()
+        connection.settings_dict["OPTIONS"] = {**original_options, "transaction_mode": "IMMEDIATE", "timeout": 20}
+        try:
+            room = m.RoomOption.objects.create(owner=self.a, title="Upload race fixture")
+            def upload():
+                def operation():
+                    content = ContentFile(b"fixture", name="fixture.png")
+                    check_room_image_budget(self.a, content)
+                    m.RoomImage.objects.create(room=room, creator=self.a, image=content)
+                    return {"saved": True}
+                try:
+                    s.run_mutation(self.a, "image-upload", uuid.uuid4(), {}, operation)
+                    return True
+                except s.DomainError as error:
+                    self.assertEqual(error.status, 409)
+                    return False
+            with tempfile.TemporaryDirectory() as directory, override_settings(
+                ROOMORA_PRIVATE_MEDIA_ROOT=Path(directory), ROOMORA_PERSON_IMAGE_COUNT=1, ROOMORA_PERSON_IMAGE_BYTES=100):
+                results = self.parallel([upload] * 8)
+                self.assertEqual(sum(results), 1)
+                self.assertEqual(room.images.count(), 1)
+                self.assertEqual(m.MutationReceipt.objects.filter(action="image-upload").count(), 1)
+        finally:
+            connection.close()
+            connection.settings_dict["OPTIONS"] = original_options
 
     def test_simultaneous_likes_create_one_canonical_pair_and_conversation(self):
         self.parallel([lambda: s.decide(self.a, self.b, "like"), lambda: s.decide(self.b, self.a, "like")])

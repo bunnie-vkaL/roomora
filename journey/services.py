@@ -2,14 +2,16 @@ import hashlib
 import json
 import logging
 import uuid
+from datetime import timedelta
 
-from django.db import transaction
-from django.db.models import Q
+from django.db import DatabaseError, transaction
+from django.db.models import F, Q
 from django.urls import reverse
 from django.utils import timezone
 
 from core.models import ConnectionRequest, Profile
 from core.scoring import score_profiles
+from core.storage import UploadCapacityError
 from . import models as m
 from .costs import calculate_shared_costs
 
@@ -19,8 +21,9 @@ CLAUSES = {"money": "Tiền và cách thanh toán", "cleaning": "Vệ sinh và v
 
 
 class DomainError(Exception):
-    def __init__(self, message, status=400):
+    def __init__(self, message, status=400, retry_after=None):
         self.message, self.status = message, status
+        self.retry_after = retry_after
         super().__init__(message)
 
 
@@ -55,9 +58,18 @@ def blocked_profile_ids(actor):
 
 
 def eligible_target(actor, target):
+    return _eligible_target(actor, target)
+
+
+def _eligible_target(actor, target, blocked=None):
+    """Shared eligibility; list reads may supply a request-local block snapshot.
+
+    Mutations and direct reads must use eligible_target for a fresh block check.
+    """
     from core.views import overlap
     if (actor.pk == target.pk or not actor.is_published or not target.is_published
-            or not actor.completed or not target.completed or is_blocked(actor, target) or not overlap(actor, target)):
+            or not actor.completed or not target.completed
+            or (is_blocked(actor, target) if blocked is None else blocked) or not overlap(actor, target)):
         raise DomainError("Hồ sơ không còn khả dụng để kết nối.", 403)
     from django.conf import settings
     if (actor.is_synthetic or target.is_synthetic) and not settings.DEBUG:
@@ -78,7 +90,7 @@ def connection_for(actor, connection_id, lock=False):
     return connection
 
 
-def conversation_for(actor, conversation_id, lock=False, allow_pending=False):
+def conversation_for(actor, conversation_id, lock=False):
     conversation = m.Conversation.objects.select_related("connection__low", "connection__high").filter(pk=conversation_id).first()
     if not conversation:
         raise DomainError("Cuộc trò chuyện không khả dụng.", 404)
@@ -88,10 +100,7 @@ def conversation_for(actor, conversation_id, lock=False, allow_pending=False):
     if actor.pk not in (connection.low_id, connection.high_id) or is_blocked(connection.low, connection.high):
         raise DomainError("Cuộc trò chuyện không khả dụng.", 403)
     if not connection.active:
-        if not allow_pending or not m.SwipeDecision.objects.filter(
-                (Q(actor=connection.low, target=connection.high) |
-                 Q(actor=connection.high, target=connection.low)), choice=m.SwipeDecision.LIKE).exists():
-            raise DomainError("Cuộc trò chuyện chưa được mở hoặc đã kết thúc.", 403)
+        raise DomainError("Cuộc trò chuyện chỉ mở khi cả hai đồng ý kết nối.", 403)
     if connection.generation != conversation.generation:
         raise DomainError("Cuộc trò chuyện đã kết thúc.", 403)
     return conversation
@@ -109,10 +118,8 @@ def pair_chat_for(actor, target, lock=False):
     connection = query.filter(pair_query(actor, target)).first()
     if not connection:
         raise DomainError("Hãy chọn Muốn kết nối trước khi nhắn tin.", 403)
-    if not connection.active and not m.SwipeDecision.objects.filter(
-            (Q(actor=actor, target=target) | Q(actor=target, target=actor)),
-            choice=m.SwipeDecision.LIKE).exists():
-        raise DomainError("Lời mời kết nối đã kết thúc.", 403)
+    if not connection.active:
+        raise DomainError("Cuộc trò chuyện chỉ mở khi cả hai đồng ý kết nối.", 403)
     conversation = connection.conversations.filter(generation=connection.generation).first()
     return connection, conversation
 
@@ -168,8 +175,13 @@ def members_for_cost(room):
     return output
 
 
+@transaction.atomic
 def emit(recipients, title, path, workspace=None):
     event = m.OutboxEvent.objects.create(recipients=sorted(set(recipients)), title=title, path=path, workspace=workspace)
+    m.OutboxRecipient.objects.bulk_create([
+        m.OutboxRecipient(event=event, profile_id=profile_id)
+        for profile_id in Profile.objects.filter(pk__in=event.recipients).values_list("pk", flat=True)
+    ])
     transaction.on_commit(lambda: deliver_safely(event.pk))
     return event
 
@@ -177,8 +189,46 @@ def emit(recipients, title, path, workspace=None):
 def deliver_safely(event_id):
     try:
         deliver_event(event_id)
+        return True
     except Exception:
-        logger.exception("Notification event %s retained for retry", event_id)
+        # Retain the event; do not log payloads or arbitrary exception text.
+        logger.error("Notification event %s retained for retry", event_id)
+        try:
+            with transaction.atomic():
+                event = m.OutboxEvent.objects.select_for_update().filter(pk=event_id, delivered=False).first()
+                if event:
+                    event.delivery_attempts += 1
+                    event.retry_at = timezone.now() + timedelta(seconds=min(3600, 30 * 2 ** min(event.delivery_attempts - 1, 7)))
+                    event.save(update_fields=["delivery_attempts", "retry_at"])
+        except Exception:
+            logger.error("Notification retry schedule unavailable for event %s", event_id)
+        return False
+
+
+def retry_outbox_for(actor):
+    """At most ten due events addressed to this reader; no global queue scan."""
+    event_ids = list(m.OutboxEvent.objects.filter(delivered=False, recipient_links__profile=actor)
+                     .filter(Q(retry_at__isnull=True) | Q(retry_at__lte=timezone.now()))
+                     .order_by("pk").values_list("pk", flat=True)[:10])
+    return sum(deliver_safely(event_id) for event_id in event_ids)
+
+
+def retry_notifications_for_request(request, actor):
+    if not getattr(request, "_roomora_outbox_checked", False):
+        request._roomora_outbox_checked = True
+        retry_outbox_for(actor)
+
+
+def visible_notifications(actor):
+    """Use the same current workspace access for list and unread count."""
+    blocked = blocked_profile_ids(actor)
+    available = Q(event__workspace__isnull=True) | Q(
+        event__workspace__status="active", event__workspace__members__profile=actor,
+        event__workspace__members__active=True, event__workspace__conversation__connection__active=True,
+        event__workspace__conversation__generation=F("event__workspace__conversation__connection__generation"))
+    return actor.notifications.filter(available).exclude(
+        Q(event__workspace__conversation__connection__low_id__in=blocked) |
+        Q(event__workspace__conversation__connection__high_id__in=blocked)).distinct()
 
 
 @transaction.atomic
@@ -200,23 +250,44 @@ def deliver_event(event_id):
     event.save(update_fields=["delivered"])
 
 
-@transaction.atomic
 def run_mutation(actor, action, key, payload, operation):
     try:
         key = uuid.UUID(str(key))
     except (ValueError, TypeError, AttributeError):
         raise DomainError("Thiếu mã thao tác. Tải lại trang và thử lại.")
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
+    try:
+        response, error = _run_mutation(actor, action, key, digest, payload, operation)
+    except DatabaseError:
+        logger.error("Mutation database unavailable; no operation was acknowledged.")
+        raise DomainError("Ứng dụng đang bận. Hãy thử lại thao tác sau.", 503, retry_after=60) from None
+    if error is not None:
+        raise error
+    return response
+
+
+@transaction.atomic
+def _run_mutation(actor, action, key, digest, payload, operation):
     # Serialize this actor's mutations and prevent duplicate side effects on retries.
     Profile.objects.select_for_update().get(pk=actor.pk)
     receipt = m.MutationReceipt.objects.filter(actor=actor, action=action, key=key).first()
     if receipt:
         if receipt.payload_hash != digest:
             raise DomainError("Mã thao tác đã dùng cho nội dung khác.", 409)
-        return receipt.response
-    response = operation()
-    m.MutationReceipt.objects.create(actor=actor, action=action, key=key, payload_hash=digest, response=response)
-    return response
+        return receipt.response, None
+    from .rate_limits import consume_mutation_budget
+    allowed, retry_after = consume_mutation_budget(actor, action, payload)
+    if not allowed:
+        return None, DomainError(f"Bạn thao tác hơi nhanh. Thử lại sau {retry_after} giây; nội dung chưa được gửi.",
+                                 429, retry_after=retry_after)
+    try:
+        # Expected errors roll back this DB savepoint; the admitted attempt stays counted.
+        with transaction.atomic():
+            response = operation()
+            m.MutationReceipt.objects.create(actor=actor, action=action, key=key, payload_hash=digest, response=response)
+    except (DomainError, UploadCapacityError) as error:
+        return None, error
+    return response, None
 
 
 @transaction.atomic
@@ -298,8 +369,8 @@ def block_profile(actor, target):
 
 
 @transaction.atomic
-def send_message(actor, conversation_id, body, client_id, allow_pending=False):
-    conversation = conversation_for(actor, conversation_id, lock=True, allow_pending=allow_pending)
+def send_message(actor, conversation_id, body, client_id):
+    conversation = conversation_for(actor, conversation_id, lock=True)
     body = body.strip()
     if not body or len(body) > 4000:
         raise DomainError("Tin nhắn cần có nội dung, tối đa 4.000 ký tự.")
@@ -321,7 +392,7 @@ def send_pair_message(actor, target, body, client_id):
     connection, conversation = pair_chat_for(actor, target, lock=True)
     if conversation is None:
         conversation = ensure_current_conversation(connection)
-    return send_message(actor, conversation.pk, body, client_id, allow_pending=True)
+    return send_message(actor, conversation.pk, body, client_id)
 
 
 @transaction.atomic

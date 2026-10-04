@@ -1,7 +1,7 @@
 from datetime import date, datetime, time
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from .constants import AREAS, BUDGET_CHOICES, QUESTIONS, QUESTION_WEIGHTS
 from .forms import ProfileForm
 from .models import ConnectionRequest, LifestyleAnswers, Profile
@@ -16,6 +16,49 @@ def profile(email, values=None, **extra):
     item = Profile.objects.create(user=user, **data)
     LifestyleAnswers.objects.create(profile=item, values=values if values is not None else {key: 0 for key, *_ in QUESTIONS})
     return item
+
+
+class AvatarValidationTests(SimpleTestCase):
+    def clean_upload(self, data, name="claimed.jpg", content_type="image/jpeg"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        form = ProfileForm()
+        form.cleaned_data = {"avatar": SimpleUploadedFile(name, data, content_type=content_type)}
+        return form.clean_avatar()
+
+    def test_mime_and_extension_cannot_make_non_image_valid(self):
+        from django.core.exceptions import ValidationError
+        for name, mime in (("photo.jpg", "image/jpeg"), ("photo.txt", "image/png"),
+                           ("photo.png", "text/html")):
+            with self.assertRaises(ValidationError):
+                self.clean_upload(b"<html>not image bytes</html>", name, mime)
+
+    def test_verified_pixels_are_reencoded_with_safe_name_and_no_metadata(self):
+        from io import BytesIO
+        from PIL import Image, PngImagePlugin
+        stream = BytesIO()
+        metadata = PngImagePlugin.PngInfo()
+        metadata.add_text("private-location", "do-not-publish")
+        Image.new("RGBA", (12, 8), (30, 80, 140, 90)).save(stream, format="PNG", pnginfo=metadata)
+        original = stream.getvalue() + b"APPENDED-INPUT-CONTENT"
+        upload = self.clean_upload(original, "misleading.jpg", "text/html")
+        self.assertRegex(upload.name, r"^[0-9a-f]{32}\.png$")
+        self.assertEqual(upload.content_type, "image/png")
+        self.assertNotIn(b"APPENDED-INPUT-CONTENT", upload.read())
+        upload.seek(0)
+        with Image.open(upload) as image:
+            self.assertEqual(image.size, (12, 8))
+            self.assertNotIn("private-location", image.info)
+            self.assertEqual(image.getpixel((0, 0)), (30, 80, 140, 90))
+
+    def test_unsupported_actual_format_and_oversize_upload_are_rejected(self):
+        from io import BytesIO
+        from PIL import Image
+        from django.core.exceptions import ValidationError
+        stream = BytesIO()
+        Image.new("RGB", (2, 2)).save(stream, format="BMP")
+        for data in (stream.getvalue(), b"x" * (5 * 1024 * 1024 + 1)):
+            with self.assertRaises(ValidationError):
+                self.clean_upload(data)
 
 
 class ScoringTests(TestCase):
@@ -164,6 +207,46 @@ class FlowTests(TestCase):
         self.client.post("/questionnaire/", {"step": "16", QUESTIONS[-1][0]: "1", "action": "next"})
         item.refresh_from_db()
         self.assertFalse(item.is_published)
+
+    def test_survey_resumes_first_valid_missing_answer_and_preserves_navigation(self):
+        item = profile("resume-survey@test.com", values={"A1": 1, "A2": True, "A3": 99}, is_published=False)
+        self.client.force_login(item.user)
+        response = self.client.get("/questionnaire/")
+        self.assertEqual(response.context["step"], 2)
+        self.assertEqual(response.context["answered_count"], 1)
+        self.assertContains(response, 'aria-valuenow="1"')
+        before = item.answers.values.copy()
+        self.client.get("/questionnaire/?step=1")
+        item.answers.refresh_from_db()
+        self.assertEqual(item.answers.values, before)
+        self.assertRedirects(self.client.post("/questionnaire/", {"step": 2, "A2": 1, "action": "next"}), "/questionnaire/?step=3")
+        self.assertEqual(self.client.get("/questionnaire/").context["step"], 3)
+        response = self.client.get("/questionnaire/?step=2")
+        self.assertEqual(response.context["form"]["A2"].value(), 1)
+
+    def test_survey_invalid_submission_does_not_save_or_publish(self):
+        item = profile("invalid-survey@test.com", values={}, is_published=False)
+        self.client.force_login(item.user)
+        for value in ("", "99", "true"):
+            response = self.client.post("/questionnaire/", {"step": 1, "A1": value, "action": "next"})
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'role="alert"')
+            item.answers.refresh_from_db()
+            self.assertEqual(item.answers.values, {})
+        item.refresh_from_db()
+        self.assertFalse(item.is_published)
+
+    def test_survey_publication_requires_explicit_complete_submit(self):
+        item = profile("finish-survey@test.com", is_published=False)
+        self.client.force_login(item.user)
+        self.client.get("/questionnaire/?step=16")
+        item.refresh_from_db()
+        self.assertFalse(item.is_published)
+        response = self.client.post("/questionnaire/", {"step": 16, "F2": 1, "action": "next"})
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        self.assertTrue(item.is_published)
+        self.assertEqual(item.questionnaire_version, "2026.2")
 
     def test_excluded_pair_cannot_connect(self):
         clean = {key: 0 for key, *_ in QUESTIONS}

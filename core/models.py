@@ -115,3 +115,10 @@ class PilotEvent(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     kind = models.CharField(max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class AuthRateBucket(models.Model):
+    """Short-lived shared counters; keys are HMACs, never raw IP/email."""
+    key = models.CharField(max_length=64, primary_key=True)
+    attempts = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField(db_index=True)

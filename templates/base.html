@@ -6,10 +6,12 @@
   <title>{% block title %}ROOMORA · More than a room{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'app.css' %}">
   <link rel="stylesheet" href="{% static 'profile.css' %}">
-  {% if journey_enabled %}<link rel="stylesheet" href="{% static 'journey.css' %}"><script src="{% static 'journey.js' %}" defer></script>{% endif %}
+  {% if journey_enabled %}<link rel="stylesheet" href="{% static 'journey.css' %}"><script src="{% static 'chat-polling.js' %}" defer></script><script src="{% static 'journey.js' %}" defer></script>{% endif %}
   <link rel="stylesheet" href="{% static 'flow.css' %}">
+  {% block extra_head %}{% endblock %}
+  <link rel="stylesheet" href="{% static 'design.css' %}">
 </head>
-<body data-account="{{ user.pk|default:'' }}">
+<body class="{% block body_class %}{% endblock %}" data-account="{{ user.pk|default:'' }}">
   <header class="site-header">
     <div class="nav-shell">
       <a class="brand" href="{% url 'home' %}">ROOMORA</a>
@@ -17,7 +19,7 @@
         {% if user.is_authenticated %}
           <a href="{% url 'about' %}">Giới thiệu</a>
           <a href="{% url 'dashboard' %}">Gợi ý cho bạn</a>
-          {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a>{% endif %}
+          {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a><a href="{% url 'journey:rooms' %}">Tìm trọ</a>{% endif %}
           <a href="{% url 'profile_edit' %}">Hồ sơ</a>
           {% if user.is_staff %}
             <a href="{% url 'pilot_results' %}">Pilot</a>
@@ -55,9 +57,10 @@
   </main>
   {% if user.is_authenticated %}
     <nav class="mobile-nav">
-      <a href="{% url 'about' %}">Giới thiệu</a>
+      {% if not journey_enabled %}<a href="{% url 'about' %}">Giới thiệu</a>{% endif %}
       <a href="{% url 'dashboard' %}">Gợi ý</a>
       {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a>{% endif %}
+      {% if journey_enabled %}<a href="{% url 'journey:rooms' %}">Tìm trọ</a>{% endif %}
       <a href="{% url 'profile_edit' %}">Hồ sơ</a>
     </nav>
   {% endif %}
