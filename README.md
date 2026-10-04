@@ -2,7 +2,7 @@
 
 ROOMORA is a Vietnamese, mobile-first MVP for finding compatible roommates in Hanoi. It compares lifestyle preferences before people choose to connect.
 
-The roommate journey at `/together/` adds mutual matching, messaging before acceptance, private saved people/rooms, an explicitly accepted shared house board, cost allocation, viewing plans, versioned agreements and move-in tasks. See [the integration guide](docs/journey/README.md), [feature coverage](docs/journey/coverage.md) and [verification evidence](docs/journey/verification.md).
+The roommate journey at `/together/` adds mutual matching, chat, private saved people/rooms, an explicitly accepted shared house board, cost allocation, viewing plans, versioned agreements and move-in tasks. See [the integration guide](docs/journey/README.md), [feature coverage](docs/journey/coverage.md) and [verification evidence](docs/journey/verification.md).
 
 ## Run locally
 
@@ -20,8 +20,6 @@ python manage.py runserver
 Open `http://127.0.0.1:8000`. Create accounts through the registration page. Recommendation lists show named profiles from the imported workbook and completed regular profiles; generic test accounts are excluded. Imported profiles remain marked synthetic in the database and are excluded whenever `DEBUG=False`.
 
 To import the fictional 100-profile Hanoi workbook into the local database, run `python manage.py import_sample_profiles /path/to/ROOMORA_100_ho_so_mau_Ha_Noi.xlsx`. Add `--dry-run` to validate without saving. The command can be run again without creating duplicates. Missing H4 means every supported district, as specified by the workbook. It preserves all source columns in `ImportedSampleProfile`, fills skipped survey answers with marked estimates, and publishes all 100 profiles for local matching. It also generates repeatable living preferences, routine times and simulated behavior indicators for the profile detail page. Behavior simulations are shown for context but are not included in the compatibility score. Sample accounts have unusable passwords and are excluded when `DEBUG=False`.
-
-To populate a local account's connection page with two matches and three incoming interests from those imported profiles, run `python manage.py seed_connection_demo --user ACCOUNT_USERNAME`. This command requires `DEBUG=True`, preserves existing decisions and can be repeated without duplicating connections. Imported profiles do not automatically reply to messages.
 
 ## Commands
 

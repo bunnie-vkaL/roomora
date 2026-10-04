@@ -111,14 +111,8 @@ class ProfileForm(forms.ModelForm):
             return avatar
         from django.core.files.uploadedfile import UploadedFile
         if isinstance(avatar, UploadedFile):
-            if avatar.size > 5 * 1024 * 1024:
-                raise forms.ValidationError("Ảnh đại diện cần nhỏ hơn 5 MB.")
-            content_type = getattr(avatar, "content_type", "").lower()
-            name = getattr(avatar, "name", "").lower()
-            valid_types = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/pjpeg", "image/x-png"}
-            valid_exts = (".jpg", ".jpeg", ".png", ".webp")
-            if content_type and content_type not in valid_types and not any(name.endswith(ext) for ext in valid_exts):
-                raise forms.ValidationError("Chỉ hỗ trợ ảnh JPG, PNG hoặc WebP.")
+            from .images import normalized_image
+            return normalized_image(avatar, max_edge=800)
         return avatar
 
 
