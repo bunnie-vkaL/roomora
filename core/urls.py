@@ -1,36 +1,35 @@
 """Core URL Configuration."""
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
-from . import views
-from .web import account, chat, legacy_discovery, pilot
+from .web import account, actions, chat, discovery, legacy_discovery, pilot, public, workspace
 
 # Collaborative Roommate Workspace endpoints (/roommates/...)
 together_patterns = ([
-    path("", views.modern_discover, name="discover"),
+    path("", discovery.modern_discover, name="discover"),
     path("hub/", chat.hub, name="hub"),
-    path("candidate/<int:profile_id>/", views.candidate, name="candidate"),
-    path("saved/", views.saved, name="saved"),
-    path("compare/", views.compare_candidates, name="compare"),
-    path("preferences/", views.preferences, name="preferences"),
+    path("candidate/<int:profile_id>/", discovery.candidate, name="candidate"),
+    path("saved/", discovery.saved, name="saved"),
+    path("compare/", discovery.compare_candidates, name="compare"),
+    path("preferences/", discovery.preferences, name="preferences"),
     path("chat/<int:conversation_id>/", chat.chat, name="chat"),
     path("chat/<int:conversation_id>/messages/", chat.messages, name="messages"),
     path("chat-with/<int:profile_id>/messages/", chat.pair_messages, name="pair-messages"),
-    path("workspace/<int:workspace_id>/", views.workspace, name="workspace"),
-    path("workspace/<int:workspace_id>/agreement/", views.agreement, name="agreement"),
-    path("rooms/", views.rooms, name="rooms"),
-    path("rooms/new/", views.edit_room, name="room-new"),
-    path("rooms/compare/", views.compare_rooms, name="room-compare"),
-    path("rooms/<int:room_id>/", views.room, name="room"),
-    path("rooms/<int:room_id>/edit/", views.edit_room, name="room-edit"),
-    path("images/<uuid:image_id>/", views.image, name="image"),
-    path("notifications/", views.notifications, name="notifications"),
-    path("resume/", views.resume, name="resume"),
-    path("action/<str:action>/", views.action, name="action"),
+    path("workspace/<int:workspace_id>/", workspace.workspace, name="workspace"),
+    path("workspace/<int:workspace_id>/agreement/", workspace.agreement, name="agreement"),
+    path("rooms/", workspace.rooms, name="rooms"),
+    path("rooms/new/", workspace.edit_room, name="room-new"),
+    path("rooms/compare/", workspace.compare_rooms, name="room-compare"),
+    path("rooms/<int:room_id>/", workspace.room, name="room"),
+    path("rooms/<int:room_id>/edit/", workspace.edit_room, name="room-edit"),
+    path("images/<uuid:image_id>/", workspace.image, name="image"),
+    path("notifications/", actions.notifications, name="notifications"),
+    path("resume/", actions.resume, name="resume"),
+    path("action/<str:action>/", actions.action, name="action"),
 ], "journey")
 
 urlpatterns = [
     # Authentication & Account Lifecycle
-    path("", views.about, name="home"),
+    path("", public.about, name="home"),
     path("register/", account.register, name="register"),
     path("login/", account.login_view, name="login"),
     path("logout/", account.logout_view, name="logout"),
