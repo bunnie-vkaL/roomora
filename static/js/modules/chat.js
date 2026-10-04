@@ -186,8 +186,6 @@ export function initChat(postFn, draftsMap) {
       button.disabled = false;
     }
   });
-
-  initConnectionWidget(postFn);
 }
 
 export function initConnectionWidget(postFn) {

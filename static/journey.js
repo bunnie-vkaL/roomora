@@ -8,7 +8,7 @@ import { initSwipeDeck } from "./js/modules/swipe_deck.js";
 import { initRoomPins } from "./js/modules/room_pins.js";
 import { initCostCalculator } from "./js/modules/cost_calculator.js";
 import { initDrafts } from "./js/modules/drafts.js";
-import { initChat } from "./js/modules/chat.js";
+import { initChat, initConnectionWidget } from "./js/modules/chat.js";
 
 async function post(form, submitter = null) {
   let response;
@@ -45,6 +45,7 @@ function initAll() {
   initCostCalculator();
   const drafts = initDrafts(post);
   initChat(post, drafts);
+  initConnectionWidget(post);
 }
 
 if (typeof document !== "undefined") {
