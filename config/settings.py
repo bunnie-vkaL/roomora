@@ -18,7 +18,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,
 
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
-    "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "core", "journey",
+    "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles", "core",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware",
@@ -32,10 +32,11 @@ TEMPLATES = [{
     "DIRS": [BASE_DIR / "templates"], "APP_DIRS": True,
     "OPTIONS": {"context_processors": [
         "django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
-        "django.contrib.messages.context_processors.messages", "journey.context.navigation",
+        "django.contrib.messages.context_processors.messages", "core.context.navigation",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3",
                          "OPTIONS": {"timeout": 20, "transaction_mode": "IMMEDIATE"},
                          "TEST": {"MIRROR": None}}}

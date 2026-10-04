@@ -14,7 +14,13 @@ python3 -m venv .venv
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py createsuperuser
-python manage.py runserver
+
+# Run both Frontend & API together:
+python run.py                 # add --reload for auto-reload
+
+# Or run individually:
+python frontend.py            # http://127.0.0.1:8000 (add --reload for auto-reload)
+python api.py                 # http://127.0.0.1:8001 (add --reload for auto-reload, docs at /docs)
 ```
 
 Open `http://127.0.0.1:8000`. Create accounts through the registration page. Recommendation lists show named profiles from the imported workbook and completed regular profiles; generic test accounts are excluded. Imported profiles remain marked synthetic in the database and are excluded whenever `DEBUG=False`.

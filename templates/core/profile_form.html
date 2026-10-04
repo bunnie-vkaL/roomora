@@ -2,18 +2,26 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'profile_form.css' %}">
+<link rel="stylesheet" href="{% static 'profile_form.css' %}?v=7">
 <link rel="stylesheet" href="{% static 'profile_identity.css' %}">
-<link rel="stylesheet" href="{% static 'profile_image.css' %}">
+<link rel="stylesheet" href="{% static 'profile_image.css' %}?v=2">
 <section class="profile-edit-header">
   <div>
-    <p class="eyebrow">Hồ sơ cá nhân · Bước 1/2</p>
-    <h1>Giới thiệu về bạn</h1>
-    <p>Những thông tin này giúp người phù hợp hiểu bạn hơn trước khi kết nối.</p>
+    {% if is_onboarding %}
+      <p class="eyebrow">Thiết lập hồ sơ · Bước 1/2</p>
+      <h1>Giới thiệu về bạn</h1>
+      <p>Những thông tin này giúp bạn xuất hiện đúng với những người đang tìm roommate phù hợp.</p>
+    {% else %}
+      <p class="eyebrow">Hồ sơ của bạn</p>
+      <h1>Cập nhật thông tin</h1>
+      <p>Chỉnh lại những gì người khác thấy khi cân nhắc kết nối với bạn.</p>
+    {% endif %}
   </div>
-  <aside class="profile-edit-note">
-    <span>01</span><p><strong>Thông tin cơ bản</strong><br>Tiếp theo, bạn sẽ trả lời 16 câu hỏi về lối sống.</p>
-  </aside>
+  {% if is_onboarding %}
+    <p class="profile-edit-next"><strong>Tiếp theo:</strong> trả lời 16 câu hỏi về lối sống để hoàn tất hồ sơ.</p>
+  {% else %}
+    <a class="profile-edit-next profile-edit-next--link" href="{% url 'questionnaire' %}"><strong>Lifestyle</strong><br>Cập nhật thói quen sống và tiêu chí ở cùng →</a>
+  {% endif %}
 </section>
 
 <form class="profile-edit-form" method="post" enctype="multipart/form-data">
@@ -21,42 +29,40 @@
   {% if form.non_field_errors %}<div class="profile-form-errors">{{ form.non_field_errors }}</div>{% endif %}
 
   <section class="profile-section">
-    <div class="profile-section__heading"><p class="eyebrow">01 · Bạn là ai</p><h2>Thông tin cơ bản</h2><p>Tên hiển thị và các thông tin giúp roommate biết thêm về bạn.</p></div>
-    <div class="profile-section__fields profile-section__fields--identity">
-      <label class="profile-field--name">{{ form.name.label }}{{ form.name }}{% for error in form.name.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
-      <label class="profile-field--age">{{ form.age.label }}{{ form.age }}{% for error in form.age.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
-      <label class="profile-field--birth-year">{{ form.birth_year.label }}{{ form.birth_year }}{% for error in form.birth_year.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
-      <label class="profile-field--gender">{{ form.gender.label }}{{ form.gender }}{% for error in form.gender.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
-      <label class="profile-field--hometown">{{ form.hometown.label }}{{ form.hometown }}{% for error in form.hometown.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
-      <label class="profile-field--bio">{{ form.bio.label }}{{ form.bio }}{% for error in form.bio.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+    <div class="profile-section__heading"><p class="eyebrow">01 · Bạn là ai</p><h2>Thông tin cơ bản</h2><p>Đây là phần mọi người nhìn thấy trước khi quyết định kết nối.</p></div>
+    <div class="profile-basic-layout">
+      <div class="profile-section__fields profile-section__fields--identity">
+        <label class="profile-field--name">{{ form.name.label }}{{ form.name }}{% for error in form.name.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label class="profile-field--hometown">{{ form.hometown.label }}{{ form.hometown }}{% for error in form.hometown.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label class="profile-field--birth-year">{{ form.birth_year.label }}{{ form.birth_year }}{% for error in form.birth_year.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label class="profile-field--gender">{{ form.gender.label }}{{ form.gender }}{% for error in form.gender.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label class="profile-field--bio">{{ form.bio.label }}{{ form.bio }}{% for error in form.bio.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        {{ form.age.as_hidden }}
+      </div>
+      <aside class="profile-avatar-upload">
+        <p class="profile-avatar-title">Ảnh đại diện</p>
+        <div class="profile-avatar-preview" id="form-avatar-preview" title="Bấm để chọn ảnh đại diện">
+          {% if profile.avatar %}
+            <img src="{{ profile.avatar.url }}" alt="Ảnh đại diện hiện tại">
+          {% else %}
+            <span class="avatar-letter">{{ profile.name|default:user.email|slice:':1'|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="profile-avatar-controls">
+          {{ form.avatar }}
+          <div class="profile-avatar-actions"><button type="button" id="btn-delete-avatar" class="avatar-delete-link" style="{% if not profile.avatar %}display:none;{% endif %}">Xoá ảnh</button><span id="avatar-action-separator" aria-hidden="true" style="{% if not profile.avatar %}display:none;{% endif %}">|</span><label class="profile-avatar-label" for="{{ form.avatar.id_for_label }}">Đổi ảnh</label></div>
+          <p>JPG, PNG hoặc WebP. Tối đa 8 MB.</p>
+          <div id="avatar-upload-status" class="avatar-upload-status" style="display:none; margin-top: 6px; font-size: 0.84rem; font-weight: 600;"></div>
+          {% for error in form.avatar.errors %}<small class="error">{{ error }}</small>{% endfor %}
+        </div>
+      </aside>
     </div>
   </section>
 
   <section class="profile-section">
-    <div class="profile-section__heading"><p class="eyebrow">02 · Ảnh đại diện</p><h2>Ảnh của bạn</h2><p>Một bức ảnh giúp hồ sơ gần gũi hơn. Bạn có thể bỏ qua mục này.</p></div>
-    <div class="profile-avatar-upload profile-section__content">
-      <div class="profile-avatar-preview" id="form-avatar-preview" title="Bấm để chọn ảnh đại diện">
-        {% if profile.avatar %}
-          <img src="{{ profile.avatar.url }}" alt="Ảnh đại diện hiện tại">
-        {% else %}
-          <span class="avatar-letter">{{ profile.name|default:user.email|slice:':1'|upper }}</span>
-        {% endif %}
-      </div>
-      <div class="profile-avatar-controls">
-        <label class="profile-avatar-label" for="{{ form.avatar.id_for_label }}">{{ form.avatar.label }}</label>
-        {{ form.avatar }}
-        <p>Không bắt buộc · JPG, PNG hoặc WebP · tối đa 5 MB</p>
-        <button type="button" id="btn-delete-avatar" class="avatar-delete-link" style="{% if not profile.avatar %}display:none;{% endif %} background:none; border:none; color:#a33; font-size:0.82rem; cursor:pointer; padding:2px 0 0; text-align:left; text-decoration:underline;">Xóa ảnh hiện tại</button>
-        <div id="avatar-upload-status" class="avatar-upload-status" style="display:none; margin-top: 6px; font-size: 0.84rem; font-weight: 600;"></div>
-        {% for error in form.avatar.errors %}<small class="error">{{ error }}</small>{% endfor %}
-      </div>
-    </div>
-  </section>
-
-  <section class="profile-section">
-    <div class="profile-section__heading"><p class="eyebrow">03 · Nơi bạn muốn sống</p><h2>Khu vực và ngân sách</h2><p>Chúng tôi chỉ đề xuất hồ sơ có ít nhất một khu vực và khoảng ngân sách giao nhau.</p></div>
+    <div class="profile-section__heading"><p class="eyebrow">02 · Nơi bạn muốn sống</p><h2>Khu vực và ngân sách</h2><p>Chúng tôi chỉ đề xuất hồ sơ có khu vực và khoảng ngân sách giao nhau.</p></div>
     <div class="profile-section__content">
-      <fieldset class="area-fieldset"><legend>{{ form.areas.label }}</legend>{{ form.areas }}{% for error in form.areas.errors %}<small class="error">{{ error }}</small>{% endfor %}</fieldset>
+      <fieldset class="area-fieldset"><legend>{{ form.areas.label }}</legend><p class="field-help">Chọn các khu vực bạn thực sự sẵn sàng cân nhắc.</p>{{ form.areas }}{% for error in form.areas.errors %}<small class="error">{{ error }}</small>{% endfor %}</fieldset>
       <div class="profile-section__fields profile-section__fields--two">
         <label>{{ form.rent_min.label }}{{ form.rent_min }}{% for error in form.rent_min.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
         <label>{{ form.rent_max.label }}{{ form.rent_max }}{% for error in form.rent_max.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
@@ -65,14 +71,20 @@
   </section>
 
   <section class="profile-section">
-    <div class="profile-section__heading"><p class="eyebrow">04 · Kết nối</p><h2>Thông tin liên hệ</h2><p>Chỉ hiển thị sau khi cả hai cùng đồng ý kết nối.</p></div>
+    <div class="profile-section__heading"><p class="eyebrow">03 · Kết nối</p><h2>Thông tin liên hệ</h2><p>Chỉ hiển thị sau khi cả hai cùng đồng ý kết nối.</p></div>
     <div class="profile-section__fields profile-section__fields--two profile-section__content">
       <label>{{ form.contact_type.label }}{{ form.contact_type }}{% for error in form.contact_type.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
       <label>{{ form.contact_value.label }}{{ form.contact_value }}{% for error in form.contact_value.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
     </div>
   </section>
 
-  <footer class="profile-edit-actions"><p>Thông tin được lưu trước khi bạn chuyển sang phần lối sống.</p><button class="gold">Tiếp tục đến lifestyle</button></footer>
+  <footer class="profile-edit-actions">
+    {% if is_onboarding %}
+      <p>Lưu thông tin cơ bản trước, rồi trả lời quiz lifestyle ở bước tiếp theo.</p><button class="gold">Tiếp tục đến lifestyle</button>
+    {% else %}
+      <p>Các thay đổi ở đây được lưu vào hồ sơ hiện tại của bạn.</p><button class="gold">Lưu thay đổi</button>
+    {% endif %}
+  </footer>
 </form>
 
 <script>
@@ -81,6 +93,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const formPreview = document.getElementById('form-avatar-preview');
   const headerAvatar = document.getElementById('header-avatar');
   const btnDeleteAvatar = document.getElementById('btn-delete-avatar');
+  const avatarActionSeparator = document.getElementById('avatar-action-separator');
   const nameInput = document.getElementById('id_name') || document.querySelector('input[name="name"]');
   const statusEl = document.getElementById('avatar-upload-status');
 
@@ -155,6 +168,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btnDeleteAvatar) {
           btnDeleteAvatar.style.display = 'inline-block';
         }
+        if (avatarActionSeparator) {
+          avatarActionSeparator.style.display = 'inline';
+        }
       } else {
         showStatus('❌ ' + (data.error || 'Lỗi khi lưu ảnh.'), 'error');
         resetAvatars();
@@ -197,6 +213,9 @@ document.addEventListener('DOMContentLoaded', function () {
         avatarInput.value = '';
         if (btnDeleteAvatar) {
           btnDeleteAvatar.style.display = 'none';
+        }
+        if (avatarActionSeparator) {
+          avatarActionSeparator.style.display = 'none';
         }
       } else {
         showStatus('❌ ' + (data.error || 'Lỗi khi xóa ảnh.'), 'error');

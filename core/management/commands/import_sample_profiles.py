@@ -9,9 +9,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from core.constants import AREAS, QUESTIONS
-from core.models import ImportedSampleProfile, LifestyleAnswers, Profile
+from core.models import ImportedSampleProfile, LifestyleAnswers, LivingPreferences, Profile
 from core.scoring import SCORING_VERSION
-from journey.models import LivingPreferences
 
 
 def source_value(value):

@@ -1,0 +1,16 @@
+<article class="person-list-card" data-person-card>
+  <a class="list-portrait" href="{% url 'journey:candidate' card.profile.pk %}" aria-label="Xem hồ sơ {{ card.profile.name }}">
+    {% if card.profile.avatar and not card.profile.is_synthetic %}<img src="{{ card.profile.avatar.url }}" alt="{{ card.profile.name }}" loading="lazy">{% else %}<span aria-hidden="true">{{ card.profile.name|slice:':1'|upper }}</span>{% endif %}
+  </a>
+  <div class="list-person-copy">
+    <div class="list-person-title"><h2><a href="{% url 'journey:candidate' card.profile.pk %}">{{ card.profile.name }}</a><span> · {{ card.profile.age }}</span></h2><span class="list-score">{{ card.score }}% <small>ước tính</small></span></div>
+    <p class="list-budget">{{ card.profile.rent_display }}</p>
+    <p class="list-area">{% if card.profile.areas|length > 5 %}Linh hoạt nhiều khu vực Hà Nội{% else %}{{ card.profile.areas|join:', ' }}{% endif %}</p>
+    <p class="list-reason">{{ card.similarities.0|default:'Trao đổi thêm để hiểu nhịp sống của nhau.' }}</p>
+    <div class="list-actions">
+      <a href="{% url 'journey:candidate' card.profile.pk %}" class="button secondary">Xem hồ sơ</a>
+      <form method="post" action="{% url 'journey:action' 'save-candidate' %}" data-list-save data-candidate-name="{{ card.profile.name }}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><input type="hidden" name="saved" value="{% if card.saved %}0{% else %}1{% endif %}"><button class="secondary" aria-label="{% if card.saved %}Bỏ lưu {{ card.profile.name }}{% else %}Lưu {{ card.profile.name }} để xem sau{% endif %}">{% if card.saved %}Bỏ lưu{% else %}Lưu{% endif %}</button></form>
+      <form method="post" action="{% url 'journey:action' 'like' %}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><button aria-label="Muốn kết nối với {{ card.profile.name }}">Muốn kết nối</button></form>
+    </div>
+  </div>
+</article>

@@ -19,26 +19,5 @@
     <article><span>03</span><h3>Xem gợi ý, rồi kết nối</h3><p>Chat chỉ mở khi cả hai cùng muốn tìm hiểu. Sau đó bạn có thể cùng so sánh căn và chi phí.</p></article>
   </div>
 </section>
-
-<section class="area-guide" aria-labelledby="area-guide-title">
-  <div class="area-guide-header"><p class="eyebrow">Gợi ý theo khu vực</p><h2 id="area-guide-title">Bắt đầu từ nơi bạn muốn sống.</h2><p>Chọn một khu vực để xem gợi ý trong vùng bạn quan tâm. ROOMORA chỉ xếp hồ sơ khi khu vực và ngân sách của hai người giao nhau.</p></div>
-  <form method="get" class="area-guide-picker"><label for="area-choice">Khu vực bạn muốn xem</label><div><select id="area-choice" name="area">{% for area in areas %}<option value="{{ area }}" {% if selected_area == area %}selected{% endif %}>{{ area }}</option>{% endfor %}</select><button type="submit">Xem khu vực</button></div></form>
-  {% if profile and profile.areas %}<p class="area-picked">Khu vực trong hồ sơ của bạn: {% for area in profile.areas %}<a href="{% url 'about' %}?area={{ area|urlencode }}">{{ area }}</a>{% endfor %}</p>{% endif %}
-  <div class="area-guide-detail">
-    <div class="area-guide-advice"><span class="area-guide-number">{{ selected_area }}</span><h3>Ba điều nên kiểm tra khi chọn người cùng ở</h3><ol><li>Quãng đường đi học hoặc đi làm của cả hai.</li><li>Tiền thuê và các khoản chung có nằm trong mức dự tính.</li><li>Thói quen sinh hoạt nào cần thống nhất trước khi thuê.</li></ol><p class="muted">Điểm phù hợp là chỉ số ước tính để bắt đầu cuộc trò chuyện, không phải cam kết ở chung.</p></div>
-    <div class="area-guide-results">
-      {% if can_recommend %}
-        <p class="eyebrow">Hồ sơ phù hợp tại {{ selected_area }}</p>
-        {% for card in recommendations %}<a class="area-person" href="{% url 'journey:candidate' card.profile.pk %}"><span class="area-person-score">{{ card.score }}%</span><span><strong>{{ card.profile.name }}, {{ card.profile.age }}</strong><small>{{ card.profile.rent_display }}</small></span><span aria-hidden="true">→</span></a>{% empty %}<p>Chưa có hồ sơ mới phù hợp ở khu vực này. Bạn có thể xem khu vực khác trong hồ sơ hoặc quay lại sau.</p>{% endfor %}
-        <a class="text-link" href="{% url 'journey:discover' %}?area={{ selected_area|urlencode }}">Xem tất cả gợi ý tại {{ selected_area }} →</a>
-      {% elif user.is_authenticated and profile and selected_area not in profile.areas %}
-        <p class="eyebrow">Cá nhân hóa gợi ý</p><h3>Thêm {{ selected_area }} vào hồ sơ</h3><p>Hãy chọn khu vực này trong hồ sơ để tìm người có thể cùng ở tại đây.</p><a class="button" href="{% url 'profile_edit' %}">Cập nhật khu vực</a>
-      {% elif user.is_authenticated %}
-        <p class="eyebrow">Cá nhân hóa gợi ý</p><h3>Hoàn thành hai bước đầu</h3><p>Điền thông tin cá nhân và lifestyle để xem những người phù hợp tại {{ selected_area }}.</p><a class="button" href="{% url 'dashboard' %}">Tiếp tục hồ sơ</a>
-      {% else %}
-        <p class="eyebrow">Gợi ý dành riêng cho bạn</p><h3>Chọn khu vực trong hồ sơ</h3><p>Sau khi bạn điền ngân sách và lifestyle, ROOMORA sẽ đề xuất người phù hợp tại khu vực bạn chọn.</p><a class="button" href="{% url 'register' %}">Bắt đầu miễn phí</a>
-      {% endif %}
-    </div>
-  </div>
-</section>
+{% if show_area_guide %}{% include 'core/_area_guide.html' %}{% endif %}
 {% endblock %}

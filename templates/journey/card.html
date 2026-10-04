@@ -1,4 +1,4 @@
-{% load journey_tags %}
+{% load core_tags %}
 <article class="person-card" data-person-card>
   <div class="person-cover">{% if card.profile.avatar and not card.profile.is_synthetic %}<img src="{{ card.profile.avatar.url }}" alt="{{ card.profile.name }}" loading="lazy">{% else %}<div class="portrait-placeholder" aria-hidden="true">{{ card.profile.name|slice:':1'|upper }}</div>{% endif %}<span class="score">{{ card.score }}%</span></div>
   <div class="person-copy"><p class="eyebrow">Người hợp nhịp</p><h2>{{ card.profile.name }}, {{ card.profile.age }}</h2><p>{% if card.profile.areas|length > 5 %}Linh hoạt nhiều khu vực Hà Nội{% else %}{{ card.profile.areas|join:', ' }}{% endif %} · {{ card.profile.rent_display }}</p>

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load core_tags %}
+
+{% block title %}Đang chờ đồng ý – Roomora{% endblock %}
+
+{% block content %}
+<div class="pending-screen">
+  <div class="pending-card">
+
+    {% if other.avatar %}
+      <img src="{{ other.avatar.url }}" alt="{{ other.name }}" class="pending-avatar">
+    {% else %}
+      <div class="pending-avatar pending-avatar--placeholder">{{ other.name|first|upper }}</div>
+    {% endif %}
+
+    <h2 class="pending-title">Đang chờ <strong>{{ other.name }}</strong> đồng ý</h2>
+
+    <p class="pending-desc">
+      Bạn đã gửi yêu cầu kết nối. Khi {{ other.name }} chấp nhận,
+      cuộc trò chuyện sẽ mở ra ở đây — không cần làm thêm gì cả.
+    </p>
+
+    <div class="pending-status">
+      <span class="pending-dot"></span>
+      Đang chờ phản hồi…
+    </div>
+
+    <a href="{{ hub_url }}" class="btn btn--secondary pending-back">← Quay lại Hộp thư</a>
+
+  </div>
+</div>
+
+<style>
+.pending-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 2rem 1rem;
+}
+.pending-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 1rem;
+  padding: 2.5rem 2rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,.06);
+}
+.pending-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 auto 1.25rem;
+  display: block;
+}
+.pending-avatar--placeholder {
+  background: var(--accent, #6366f1);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 80px;
+}
+.pending-title { font-size: 1.25rem; margin-bottom: .75rem; }
+.pending-desc  { color: var(--text-muted, #6b7280); font-size: .95rem; line-height: 1.6; margin-bottom: 1.5rem; }
+.pending-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .875rem;
+  color: var(--text-muted, #6b7280);
+  background: var(--surface-alt, #f3f4f6);
+  padding: .4rem .9rem;
+  border-radius: 999px;
+  margin-bottom: 1.75rem;
+}
+.pending-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .3; }
+}
+.pending-back { display: inline-block; }
+</style>
+{% endblock %}
