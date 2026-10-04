@@ -1,0 +1,12 @@
+{% load journey_tags %}
+<article class="room-card rental-card">
+  <a class="rental-cover" href="{% url 'journey:room' room.pk %}" aria-label="Xem {{ room.title }}">{% with image=room.images.first %}{% if image %}<img src="{% url 'journey:image' image.pk %}" alt="{{ image.caption|default:room.title }}" loading="lazy">{% else %}<div class="home-placeholder" aria-hidden="true">⌂</div>{% endif %}{% endwith %}</a>
+  <div class="rental-card-copy"><p class="rental-area">{{ room.area|default:'Chưa nhập khu vực' }}</p><h3><a href="{% url 'journey:room' room.pk %}">{{ room.title }}</a></h3>
+    <dl class="rental-costs"><div><dt>Hàng tháng{% if room.cost_overview.monthly_partial %} · đã nhập{% endif %}</dt><dd>{{ room.cost_overview.monthly|vnd }}</dd></div><div><dt>Ban đầu{% if room.cost_overview.upfront_partial %} · đã nhập{% endif %}</dt><dd>{{ room.cost_overview.upfront|vnd }}</dd></div></dl>
+    <p class="rental-cost-note">Toàn căn · ban đầu gồm tháng đầu, cọc và khoản một lần.</p>
+    <div class="rental-states">{% if room.cost_overview.missing_count %}<span class="rental-state">Cần bổ sung {{ room.cost_overview.missing_count }} khoản</span>{% endif %}{% if room.cost_overview.estimated %}<span class="rental-state">Có khoản ước tính</span>{% endif %}</div>
+    {% if room.member_opinions %}<div class="rental-opinions">{% for row in room.member_opinions %}<div><span>{{ row.profile.name }}</span><strong>{{ row.opinion.get_choice_display|default:'Chưa phản hồi' }}</strong>{% if row.opinion.note %}<p>{{ row.opinion.note }}</p>{% endif %}</div>{% endfor %}</div>{% endif %}
+    <div class="rental-card-actions"><label><input type="checkbox" name="room" value="{{ room.pk }}"> So sánh căn này</label><a class="detail-link" href="{% url 'journey:room' room.pk %}">Chi tiết →</a></div>
+    {% if private_card %}<a class="rental-match-link" href="{% url 'journey:discover' %}?room={{ room.pk }}">Tìm bạn theo căn này →</a>{% endif %}
+  </div>
+</article>

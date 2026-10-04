@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Vui lòng thử lại sau · Roomora{% endblock %}
+{% block content %}
+<section class="form-card" role="alert">
+  <h1>Thử lại sau một chút.</h1>
+  <p>Bạn đã gửi nhiều yêu cầu liên tiếp. Vui lòng đợi khoảng {{ retry_minutes }} phút rồi thử lại.</p>
+  <a class="button secondary" href="{% url 'home' %}">Về trang chủ</a>
+</section>
+{% endblock %}

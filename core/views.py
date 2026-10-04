@@ -18,7 +18,7 @@ from .forms import (
     ProfileForm,
     RegistrationForm,
 )
-from .models import ConnectionRequest, LifestyleAnswers, PilotEvent, PilotExercise, Profile
+from .models import ConnectionRequest, LifestyleAnswers, PilotEvent, PilotExercise, Profile, recommendable_profiles
 from .scoring import SCORING_VERSION, score_profiles
 
 
@@ -26,6 +26,25 @@ def home(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
     return render(request, "core/home.html")
+
+
+def about(request):
+    profile = getattr(request.user, "profile", None) if request.user.is_authenticated else None
+    selected_area = request.GET.get("area", "")
+    if selected_area not in AREAS:
+        selected_area = profile.areas[0] if profile and profile.areas else AREAS[0]
+    can_recommend = bool(
+        settings.ROOMORA_JOURNEY_ENABLED and profile and profile.is_published
+        and profile.completed and selected_area in profile.areas
+    )
+    recommendations = []
+    if can_recommend:
+        from journey.views import candidate_rows
+        recommendations = candidate_rows(profile, area=selected_area)[:3]
+    return render(request, "core/about.html", {
+        "areas": AREAS, "selected_area": selected_area, "profile": profile,
+        "can_recommend": can_recommend, "recommendations": recommendations,
+    })
 
 
 def register(request):
@@ -88,20 +107,32 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     profile = request.user.profile
-    matches = find_matches(profile) if profile.is_published else []
-    return render(request, "core/dashboard.html", {"profile": profile, "matches": matches[:3]})
+    if profile.is_published and profile.completed:
+        return redirect("journey:discover" if settings.ROOMORA_JOURNEY_ENABLED else "discover")
+    profile_ready = bool(profile.name and profile.areas and profile.rent_min and profile.rent_max and profile.contact_value)
+    return render(request, "core/dashboard.html", {"profile": profile, "profile_ready": profile_ready})
 
 
 @login_required
 def profile_edit(request):
     profile = request.user.profile
+    previous_avatar, avatar_storage = profile.avatar.name, profile.avatar.storage
     form = ProfileForm(request.POST or None, request.FILES or None, instance=profile)
     if request.method == "POST" and form.is_valid():
         profile = form.save(commit=False)
         profile.is_published = False
-        profile.save()
-        messages.success(request, "Thông tin cơ bản đã được lưu. Hoàn thành khảo sát để xuất bản hồ sơ.")
-        return redirect("questionnaire")
+        from .storage import UploadCapacityError
+        try:
+            with transaction.atomic():
+                profile.save()
+                if previous_avatar != profile.avatar.name:
+                    from .avatar_cleanup import queue_avatar_cleanup
+                    queue_avatar_cleanup(previous_avatar, avatar_storage, using=profile._state.db)
+        except UploadCapacityError:
+            form.add_error("avatar", UploadCapacityError.message)
+        else:
+            messages.success(request, "Thông tin cơ bản đã được lưu. Hoàn thành khảo sát để xuất bản hồ sơ.")
+            return redirect("questionnaire")
     return render(request, "core/profile_form.html", {"form": form, "profile": profile})
 
 
@@ -112,21 +143,29 @@ def upload_avatar(request):
     avatar_file = request.FILES.get("avatar")
     if not avatar_file:
         return JsonResponse({"success": False, "error": "Chưa chọn tệp ảnh."}, status=400)
-    if avatar_file.size > 5 * 1024 * 1024:
-        return JsonResponse({"success": False, "error": "Ảnh đại diện cần nhỏ hơn 5 MB."}, status=400)
-    content_type = getattr(avatar_file, "content_type", "").lower()
-    name = getattr(avatar_file, "name", "").lower()
-    valid_types = {"image/jpeg", "image/jpg", "image/png", "image/webp", "image/pjpeg", "image/x-png"}
-    valid_exts = (".jpg", ".jpeg", ".png", ".webp")
-    if content_type and content_type not in valid_types and not any(name.endswith(ext) for ext in valid_exts):
-        return JsonResponse({"success": False, "error": "Chỉ hỗ trợ định dạng JPG, PNG hoặc WebP."}, status=400)
+    if set(request.FILES) != {"avatar"} or len(request.FILES.getlist("avatar")) != 1:
+        return JsonResponse({"success": False, "error": "Chỉ gửi một ảnh đại diện."}, status=400)
+    from django.core.exceptions import ValidationError
+    from .images import normalized_image
+    from .storage import UploadCapacityError
+    try:
+        avatar_file = normalized_image(avatar_file, max_edge=800)
+    except ValidationError as error:
+        return JsonResponse({"success": False, "error": " ".join(error.messages)}, status=400)
     profile = request.user.profile
+    previous_avatar, avatar_storage = profile.avatar.name, profile.avatar.storage
     profile.avatar = avatar_file
-    profile.save()
+    try:
+        with transaction.atomic():
+            profile.save()
+            from .avatar_cleanup import queue_avatar_cleanup
+            queue_avatar_cleanup(previous_avatar, avatar_storage, using=profile._state.db)
+    except UploadCapacityError:
+        return JsonResponse({"success": False, "error": UploadCapacityError.message}, status=503)
     return JsonResponse({
         "success": True,
         "avatar_url": profile.avatar.url,
-        "message": "Ảnh đại diện đã được lưu vào database thành công."
+        "message": "Đã cập nhật ảnh đại diện."
     })
 
 
@@ -136,14 +175,17 @@ def delete_avatar(request):
         return JsonResponse({"success": False, "error": "Phương thức không được hỗ trợ."}, status=405)
     profile = request.user.profile
     if profile.avatar:
-        profile.avatar.delete(save=False)
-        profile.avatar = None
-        profile.save()
+        previous_avatar, avatar_storage = profile.avatar.name, profile.avatar.storage
+        with transaction.atomic():
+            profile.avatar = None
+            profile.save(update_fields=["avatar"])
+            from .avatar_cleanup import queue_avatar_cleanup
+            queue_avatar_cleanup(previous_avatar, avatar_storage, using=profile._state.db)
     fallback_initial = (profile.name or request.user.email or "R")[:1].upper()
     return JsonResponse({
         "success": True,
         "initial": fallback_initial,
-        "message": "Đã xóa ảnh đại diện trong database."
+        "message": "Đã gỡ ảnh đại diện."
     })
 
 
@@ -151,8 +193,11 @@ def delete_avatar(request):
 def questionnaire(request):
     profile = request.user.profile
     answers, _ = LifestyleAnswers.objects.get_or_create(profile=profile)
+    valid_keys = {key for key, _, _, options in QUESTIONS
+                  if type(answers.values.get(key)) is int and 0 <= answers.values[key] < len(options)}
+    resume_step = next((i for i, (key, *_) in enumerate(QUESTIONS, 1) if key not in valid_keys), 1)
     try:
-        step = int(request.POST.get("step", request.GET.get("step", 1)))
+        step = int(request.POST.get("step", request.GET.get("step", resume_step)))
     except (TypeError, ValueError):
         step = 1
     step = max(1, min(step, len(QUESTIONS)))
@@ -176,10 +221,19 @@ def questionnaire(request):
         profile.full_clean()
         profile.save()
         PilotEvent.objects.create(user=request.user, kind="profile_published")
-        messages.success(request, "Hồ sơ đã xuất bản. Bạn có thể bắt đầu khám phá match.")
-        return redirect("discover")
-    answered_count = sum(key in answers.values for key, _, _, _ in QUESTIONS)
-    return render(request, "core/questionnaire.html", {"form": form, "step": step, "total_steps": len(QUESTIONS), "question": question, "answered_count": answered_count})
+        messages.success(request, "Hồ sơ đã sẵn sàng. Đây là những người phù hợp với bạn.")
+        return redirect("dashboard")
+    survey_groups = []
+    for group_key, (title, _) in GROUPS.items():
+        group_questions = [(i, key) for i, (key, group, *_) in enumerate(QUESTIONS, 1) if group == group_key]
+        survey_groups.append({"title": title, "step": group_questions[0][0],
+                              "total": len(group_questions),
+                              "answered": sum(key in valid_keys for _, key in group_questions),
+                              "current": group_key == question[1]})
+    return render(request, "core/questionnaire.html", {"form": form, "step": step,
+                  "total_steps": len(QUESTIONS), "question": question,
+                  "answered_count": len(valid_keys), "survey_groups": survey_groups,
+                  "group_title": GROUPS[question[1]][0], "previous_step": step - 1})
 
 
 def ensure_user_profile_for_discovery(profile):
@@ -229,85 +283,6 @@ def ensure_user_profile_for_discovery(profile):
         answers.save()
 
 
-def ensure_sample_matches(profile):
-    """
-    Generate or calibrate 10 synthetic sample profiles ('Mẫu thử #01' - 'Mẫu thử #10')
-    that directly match the localhost account's selected areas, rent budget, and lifestyle answers,
-    ranked with strictly decreasing compatibility scores (from 99% down to 84%).
-    """
-    Profile.objects.filter(user__username__startswith="synthetic-").update(is_published=False)
-
-    user_areas = profile.areas or ["Cầu Giấy", "Đống Đa", "Ba Đình"]
-    user_min = profile.rent_min or 3_000_000
-    user_max = profile.rent_max or 5_500_000
-    user_ans = profile.answers.values if hasattr(profile, "answers") else {}
-
-    c3_alt = (user_ans.get("C3", 0) + 1) % 3
-    e1_alt = (user_ans.get("E1", 0) + 1) % 4
-    b2_alt = (user_ans.get("B2", 0) + 1) % 4
-    d5_alt = (user_ans.get("D5", 0) + 1) % 3
-    f2_alt = (user_ans.get("F2", 0) + 1) % 4
-    a3_val = user_ans.get("A3", 0)
-    a3_alt = 1 if a3_val in (0, 3) else 0
-    c2_alt = (user_ans.get("C2", 0) + 2) % 4
-    d4_val = user_ans.get("D4", 0)
-    d4_alt = min(3, d4_val + 1) if d4_val < 3 else 2
-    f1_val = user_ans.get("F1", 0)
-    f1_alt = 1 if f1_val in (0, 3) else 0
-
-    variations = [
-        ({}, 0, 0, user_areas),
-        ({"C3": c3_alt}, 0, 0, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt}, 200_000, 200_000, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt}, 200_000, 200_000, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt}, 300_000, 300_000, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt}, -200_000, -200_000, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt}, -300_000, -300_000, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt, "C2": c2_alt}, -300_000, -300_000, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt, "C2": c2_alt, "D4": d4_alt}, -400_000, -400_000, user_areas),
-        ({"C3": c3_alt, "E1": e1_alt, "B2": b2_alt, "D5": d5_alt, "F2": f2_alt, "A3": a3_alt, "C2": c2_alt, "D4": d4_alt, "F1": f1_alt}, -400_000, -400_000, user_areas),
-    ]
-
-    for idx, (delta, rent_dmin, rent_dmax, candidate_areas) in enumerate(variations, 1):
-        email = f"sample-{idx:02d}@roomora.local"
-        user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
-        if not user.has_usable_password():
-            user.set_unusable_password()
-            user.save()
-
-        sample_rent_min = max(500_000, user_min + rent_dmin)
-        sample_rent_max = max(sample_rent_min + 500_000, user_max + rent_dmax)
-
-        p_obj, _ = Profile.objects.get_or_create(user=user, defaults={
-            "name": f"Mẫu thử #{idx:02d}",
-            "age": 23,
-            "gender": "",
-            "areas": candidate_areas,
-            "rent_min": sample_rent_min,
-            "rent_max": sample_rent_max,
-            "contact_type": "zalo",
-            "contact_value": "Mẫu thử nghiệm",
-            "is_published": True,
-            "is_synthetic": True,
-            "questionnaire_version": SCORING_VERSION,
-        })
-        p_obj.name = f"Mẫu thử #{idx:02d}"
-        p_obj.age = 23
-        p_obj.bio = ""
-        p_obj.areas = candidate_areas
-        p_obj.rent_min = sample_rent_min
-        p_obj.rent_max = sample_rent_max
-        p_obj.is_published = True
-        p_obj.is_synthetic = True
-        p_obj.questionnaire_version = SCORING_VERSION
-        p_obj.save()
-
-        sample_ans = dict(user_ans)
-        for k, v in delta.items():
-            sample_ans[k] = v
-        LifestyleAnswers.objects.update_or_create(profile=p_obj, defaults={"values": sample_ans})
-
-
 def overlap(left, right):
     return bool(set(left.areas) & set(right.areas)) and left.rent_min <= right.rent_max and right.rent_min <= left.rent_max
 
@@ -322,11 +297,7 @@ def blocked_pair(left, right):
 
 
 def find_matches(profile, area=None, rent=None):
-    candidates = Profile.objects.filter(is_published=True).exclude(pk=profile.pk).select_related("user", "answers")
-    if settings.DEBUG:
-        candidates = candidates.filter(is_synthetic=True, user__username__startswith="sample-")
-    else:
-        candidates = candidates.filter(is_synthetic=False)
+    candidates = recommendable_profiles().exclude(pk=profile.pk).select_related("user", "answers")
     items = []
     for candidate in candidates:
         if not overlap(profile, candidate) or blocked_pair(profile, candidate):
@@ -346,7 +317,6 @@ def discover(request):
     profile = request.user.profile
     if settings.DEBUG:
         ensure_user_profile_for_discovery(profile)
-        ensure_sample_matches(profile)
     elif not profile.is_published:
         messages.info(request, "Hãy hoàn thành hồ sơ trước khi tìm match.")
         return redirect("profile_edit")

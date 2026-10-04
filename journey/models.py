@@ -3,13 +3,13 @@ import uuid
 from pathlib import Path
 
 from django.conf import settings
-from django.core.files.storage import FileSystemStorage
+from core.storage import BudgetFileSystemStorage
 from django.db import models
 from django.db.models import F, Q
 from django.utils.functional import cached_property
 
 
-class PrivateStorage(FileSystemStorage):
+class PrivateStorage(BudgetFileSystemStorage):
     @cached_property
     def base_location(self):
         return settings.ROOMORA_PRIVATE_MEDIA_ROOT
@@ -378,7 +378,17 @@ class OutboxEvent(models.Model):
     title = models.CharField(max_length=200)
     path = models.CharField(max_length=250)
     delivered = models.BooleanField(default=False)
+    delivery_attempts = models.PositiveIntegerField(default=0)
+    retry_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class OutboxRecipient(models.Model):
+    event = models.ForeignKey(OutboxEvent, on_delete=models.CASCADE, related_name="recipient_links")
+    profile = models.ForeignKey("core.Profile", on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["event", "profile"], name="journey_unique_outbox_recipient")]
 
 
 class Notification(models.Model):

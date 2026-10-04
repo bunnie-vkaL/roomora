@@ -1,9 +1,9 @@
 import math
-import uuid
 
 from django import forms
+from django.conf import settings
 from django.forms import inlineformset_factory
-from PIL import Image
+from core.images import normalized_image
 
 from . import models as m
 from .services import CLAUSES
@@ -70,22 +70,18 @@ class ImageUploadForm(forms.Form):
     image = forms.ImageField(label="Ảnh căn / bằng chứng đi xem")
     caption = forms.CharField(max_length=200, required=False, label="Mô tả ảnh")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        limits = []
+        if getattr(settings, "ROOMORA_PERSON_IMAGE_COUNT", 0):
+            limits.append(f'{settings.ROOMORA_PERSON_IMAGE_COUNT} ảnh')
+        if getattr(settings, "ROOMORA_PERSON_IMAGE_BYTES", 0):
+            limits.append(f'{settings.ROOMORA_PERSON_IMAGE_BYTES // (1024 * 1024)} MB')
+        if limits:
+            self.fields["image"].help_text = "Bản thử nghiệm: tối đa " + " và ".join(limits) + " ảnh trọ cho mỗi người. Ảnh được thu nhỏ trước khi lưu."
+
     def clean_image(self):
-        uploaded = self.cleaned_data["image"]
-        if uploaded.size > 5 * 1024 * 1024:
-            raise forms.ValidationError("Ảnh cần nhỏ hơn 5 MB.")
-        try:
-            image = Image.open(uploaded)
-            if image.format not in ["JPEG", "PNG", "WEBP"] or image.width * image.height > 20_000_000:
-                raise forms.ValidationError("Chỉ dùng JPG, PNG hoặc WebP, tối đa 20 triệu điểm ảnh.")
-            extension = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}[image.format]
-            image.verify()
-        except (Image.DecompressionBombError, OSError, ValueError):
-            raise forms.ValidationError("Tệp không phải ảnh hợp lệ.")
-        finally:
-            uploaded.seek(0)
-        uploaded.name = uuid.uuid4().hex + extension
-        return uploaded
+        return normalized_image(self.cleaned_data["image"], max_edge=2048)
 
 
 class PinForm(forms.ModelForm):

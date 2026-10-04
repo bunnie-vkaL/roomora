@@ -1,4 +1,13 @@
 {% extends 'journey/base.html' %}
-{% block journey_content %}<section class="journey-heading"><div><p class="eyebrow">Hiểu nhau trước khi ở cùng</p><h1>{{ card.profile.name }}</h1></div><a class="button secondary" href="{% url 'journey:discover' %}">Về tìm bạn</a></section><div class="grid two"><div>{% include 'journey/card.html' %}</div><div>{% include 'journey/routine.html' with person=card.profile living=card.living %}{% include 'journey/routine.html' with person=actor living=actor.living %}{% for warning in card.warnings %}<p class="muted">{{ warning }}</p>{% endfor %}</div></div>
+{% block journey_content %}
+<section class="journey-heading">
+  <div><p class="eyebrow">Hiểu nhau trước khi ở cùng</p><h1>{{ card.profile.name }}</h1></div>
+  <a class="button secondary" href="{% url 'journey:discover' %}">Về tìm bạn</a>
+</section>
+<div class="candidate-overview">
+  <div>{% include 'journey/card.html' with hide_needs=True hide_detail_link=True %}</div>
+  <div>{% include 'journey/routine.html' with person=card.profile living=card.living %}</div>
+</div>
+{% include 'journey/lifestyle_details.html' %}
 <section class="panel"><h2>Ghi chú riêng của bạn</h2><p>Chỉ bạn đọc được. Người này và người cùng tìm nhà không thấy ghi chú.</p><form method="post" action="{% url 'journey:action' 'note' %}" data-draft="note-{{ card.profile.pk }}" data-autosave>{% include 'journey/fields.html' with version=note.version|default:0 %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><label>Điều muốn ghi nhớ<textarea name="body" rows="4" maxlength="3000">{{ note.body }}</textarea></label><button>Lưu ghi chú</button><span class="save-status" role="status"></span></form></section>
 <details class="panel"><summary>Chặn hoặc báo cáo</summary><div class="grid two"><form method="post" action="{% url 'journey:action' 'block' %}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><p>Chặn sẽ kết thúc chat và quyền vào không gian chung giữa hai bạn.</p><button class="secondary">Chặn {{ card.profile.name }}</button></form><form method="post" action="{% url 'journey:action' 'report' %}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><label>Lý do báo cáo<textarea name="reason" required maxlength="1000"></textarea></label><button class="secondary">Gửi báo cáo riêng tới quản trị</button></form></div></details>{% endblock %}

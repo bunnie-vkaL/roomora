@@ -17,6 +17,23 @@
     return result;
   }
   document.querySelectorAll("[data-go-back]").forEach(button => button.addEventListener("click", () => history.back()));
+  document.querySelectorAll("[data-list-save]").forEach(form => {
+    let busy = false;
+    form.addEventListener("submit", async event => {
+      event.preventDefault(); if (busy) return;
+      busy = true;
+      const button = form.querySelector("button"); button.disabled = true;
+      try {
+        await post(form, event.submitter); resetKey(form);
+        const saved = form.elements.saved;
+        saved.value = saved.value === "1" ? "0" : "1";
+        button.textContent = saved.value === "0" ? "Bỏ lưu" : "Lưu";
+        button.setAttribute("aria-label", saved.value === "0" ? `Bỏ lưu ${form.dataset.candidateName}` : `Lưu ${form.dataset.candidateName} để xem sau`);
+        announce(saved.value === "0" ? "Đã lưu riêng, chưa gửi lượt quan tâm." : "Đã bỏ lưu.");
+      } catch (error) { announce(error.message); }
+      finally { busy = false; button.disabled = false; }
+    });
+  });
   document.querySelectorAll(".routine-track").forEach(track => {
     const minute = value => { const [hour, minute] = value.split(":").map(Number); return hour * 60 + minute; };
     const start = minute(track.dataset.routineStart), end = minute(track.dataset.routineEnd);
@@ -50,8 +67,9 @@
           announce(saved.value === "0" ? "Đã lưu riêng, chưa gửi lượt quan tâm." : "Đã bỏ lưu.");
         } else {
           if (result.redirect.includes("/chat/")) { location.assign(result.redirect); return; }
+          if (form.dataset.deckAction === "like") { location.assign(result.redirect); return; }
           index += 1; show();
-          announce(form.dataset.deckAction === "like" ? "Đã muốn kết nối. Chat mở khi cả hai cùng quan tâm." : "Đã bỏ qua. Có thể hoàn tác lượt cuối chưa match.");
+          announce("Đã bỏ qua. Có thể hoàn tác lượt cuối chưa match.");
           const next = document.querySelector("[data-next-candidates]");
           if (next) { const url = new URL(next.href); url.searchParams.delete("cursor"); next.href = url; }
           cards[index]?.querySelector("button")?.focus({preventScroll: true});
@@ -199,7 +217,7 @@
   }));
   const chatLog = document.querySelector("[data-chat-log]");
   if (chatLog) {
-    const send = document.querySelector("[data-chat-send]"); let polling = false;
+    const send = document.querySelector("[data-chat-send]");
     const renderMessage = (message, prepend = false) => {
       if (chatLog.querySelector(`[data-message-id="${message.id}"]`)) return;
       chatLog.querySelector("[data-chat-empty]")?.remove();
@@ -215,24 +233,47 @@
       const button = document.createElement("button"); button.textContent = "Ghim"; pinForm.append(label, button); details.append(summary, pinForm);
       div.append(sender, body, time, details); prepend ? chatLog.prepend(div) : chatLog.append(div);
     };
-    async function poll() {
-      if (polling || document.hidden) return;
-      polling = true;
-      try {
+    const poller = createRoomoraPolling({
+      canRun: () => !document.hidden && navigator.onLine,
+      onError: error => {
+        announce(error.message || "Chưa tải được tin mới. Ứng dụng sẽ thử lại khi có kết nối.");
+        if ([401, 403, 404].includes(error.status)) {
+          poller.stop(); send.querySelector("button").disabled = true;
+        }
+      },
+      task: async signal => {
         let after = Math.max(0, ...[...chatLog.querySelectorAll("[data-message-id]")].map(row => Number(row.dataset.messageId)));
-        let more = true;
-        while (more) {
-          const response = await fetch(`${chatLog.dataset.url}?after=${after}`, {headers: {Accept: "application/json"}});
-          const result = await response.json(); if (!response.ok) { const error = new Error(result.error); error.status = response.status; throw error; }
+        let more = true, changed = false;
+        // Bound each catch-up cycle so a long conversation cannot monopolize a free worker.
+        for (let page = 0; page < 3 && more; page += 1) {
+          const response = await fetch(`${chatLog.dataset.url}?after=${after}`, {headers: {Accept: "application/json"}, credentials: "same-origin", signal});
+          if (signal.aborted) return {changed: false, more: false};
+          if (!response.headers.get("Content-Type")?.includes("application/json")) {
+            const error = new Error(response.redirected ? "Phiên làm việc đã hết. Đăng nhập lại để tiếp tục chat." : "Chưa tải được tin mới. Ứng dụng sẽ thử lại.");
+            error.status = response.redirected ? 401 : response.status; throw error;
+          }
+          const result = await response.json();
+          if (signal.aborted) return {changed: false, more: false};
+          if (!response.ok) { const error = new Error(result.error || "Chưa tải được tin mới."); error.status = response.status; throw error; }
+          if (!Array.isArray(result.messages)) throw new Error("Chưa tải được tin mới. Ứng dụng sẽ thử lại.");
           const atBottom = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 70;
           result.messages.forEach(message => renderMessage(message));
-          more = result.messages.length === 50; after = result.messages.at(-1)?.id ?? after;
+          changed ||= result.messages.length > 0;
+          more = result.messages.length === 50;
+          const next = result.messages.at(-1)?.id ?? after;
+          if (more && next <= after) throw new Error("Chưa tải được tin mới. Hãy tải lại trang.");
+          after = next;
           if (atBottom) chatLog.scrollTop = chatLog.scrollHeight;
         }
-      } catch (error) { announce(error.message || "Chưa tải được tin mới. Bạn có thể thử lại."); if (error.status === 403) { clearInterval(interval); send.querySelector("button").disabled = true; } }
-      finally { polling = false; }
-    }
-    const interval = setInterval(poll, 4000);
+        return {changed, more};
+      }
+    });
+    document.addEventListener("visibilitychange", () => document.hidden ? poller.pause() : poller.resume());
+    window.addEventListener("offline", () => poller.pause());
+    window.addEventListener("online", () => poller.resume());
+    window.addEventListener("pagehide", () => poller.pause());
+    window.addEventListener("pageshow", () => poller.resume());
+    poller.resume();
     const sourceMessage = location.hash.startsWith("#message-") ? document.getElementById(location.hash.slice(1)) : null;
     if (sourceMessage && chatLog.contains(sourceMessage)) sourceMessage.scrollIntoView({block: "nearest"});
     else chatLog.scrollTop = chatLog.scrollHeight;
@@ -246,9 +287,13 @@
       try {
         await post(send, event.submitter);
         resetKey(send); send.elements.client_id.value = key(); delete send.dataset.lastAttemptBody;
-        if (send.elements.body.value === sentBody) { send.elements.body.value = ""; drafts.get(send)?.remove(); }
+        if (send.elements.body.value === sentBody) {
+          send.elements.body.value = ""; drafts.get(send)?.remove();
+          const label = send.querySelector(".save-status");
+          if (label) label.textContent = "Đã gửi tin nhắn.";
+        }
         else drafts.get(send)?.persist();
-        await poll();
+        await poller.refresh();
       }
       catch (error) { announce(error.message); }
       finally { sending = false; }

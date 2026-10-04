@@ -47,6 +47,7 @@ def calculate_shared_costs(costs, members, weights=None):
         details.append({**cost, "shares": shares})
         for key, share in shares.items():
             parts[key][period] += share
+    entered_periods = {detail["period"] for detail in details}
     output = []
     for member in members:
         key = str(member["id"])
@@ -54,11 +55,16 @@ def calculate_shared_costs(costs, members, weights=None):
         upfront = sum(share.values())  # First month + one-off charges + refundable deposit.
         monthly_budget = member.get("monthly_budget")
         upfront_budget = member.get("upfront_budget")
-        output.append({"id": member["id"], **share, "upfront": upfront,
+        display = {period: amount if period in entered_periods else None for period, amount in share.items()}
+        display["upfront"] = upfront if details else None
+        output.append({"id": member["id"], **share, "upfront": upfront, "display": display,
                        "monthly_budget": monthly_budget, "upfront_budget": upfront_budget,
                        "monthly_over_budget": monthly_budget is not None and share["monthly"] > monthly_budget,
                        "upfront_over_budget": upfront_budget is not None and upfront > upfront_budget})
-    return {"members": output, "totals": {**totals, "upfront": sum(totals.values())},
+    display_totals = {period: amount if period in entered_periods else None for period, amount in totals.items()}
+    display_totals["upfront"] = sum(totals.values()) if details else None
+    return {"members": output, "totals": {**totals, "upfront": sum(totals.values())}, "display_totals": display_totals,
             "unknown": unknown, "estimated": estimated, "complete": not unknown,
             "monthly_complete": not any(item["period"] == "monthly" for item in unknown),
+            "deposit_complete": not any(item["period"] == "deposit" for item in unknown),
             "details": details, "weights": weights}

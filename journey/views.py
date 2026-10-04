@@ -15,8 +15,10 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.models import LifestyleAnswers, Profile
-from core.scoring import score_profiles
+from core.models import LifestyleAnswers, Profile, recommendable_profiles
+from core.constants import GROUPS, QUESTIONS
+from core.scoring import REASON_TITLES, score_profiles
+from core.storage import UploadCapacityError
 from . import forms as f, models as m, services as s
 from .costs import calculate_shared_costs
 
@@ -31,11 +33,20 @@ def page(view):
         try:
             if request.actor.is_synthetic and not settings.DEBUG:
                 raise s.DomainError("Tài khoản mẫu chỉ dùng trong môi trường thử nghiệm.", 403)
+            s.retry_notifications_for_request(request, request.actor)
             return view(request, *args, **kwargs)
         except s.DomainError as exc:
             if request.headers.get("Accept") == "application/json":
-                return JsonResponse({"error": exc.message}, status=exc.status)
-            return render(request, "journey/error.html", {"error": exc.message}, status=exc.status)
+                data = {"error": exc.message}
+                if exc.retry_after is not None:
+                    data["retry_after"] = exc.retry_after
+                response = JsonResponse(data, status=exc.status)
+            else:
+                response = render(request, "journey/error.html", {"error": exc.message}, status=exc.status)
+            if exc.retry_after is not None:
+                response["Retry-After"] = str(exc.retry_after)
+                response["Cache-Control"] = "no-store"
+            return response
     return wrapped
 
 
@@ -82,49 +93,73 @@ def clean_form(form):
     return form.cleaned_data
 
 
-def candidate_card(actor, profile, result=None, context=None):
+def candidate_card(actor, profile, result=None, context=None, saved=None):
     result = result or s.eligible_target(actor, profile)
     living = getattr(profile, "living", None)
+    source = getattr(profile, "sample_source", None)
+    estimated_answers = set(source.estimated_answers) if source else set()
+    lifestyle_sections = []
+    answers = profile.answers.values if hasattr(profile, "answers") else {}
+    for group_key, (group_title, _) in GROUPS.items():
+        choices = [{"title": REASON_TITLES[key], "answer": options[answers[key]],
+                    "estimated": key in estimated_answers}
+                   for key, group, _, options in QUESTIONS if group == group_key and key in answers]
+        if choices:
+            lifestyle_sections.append({"title": group_title, "choices": choices})
     context_reason = ""
     if context:
         context_reason = f"Cùng cân nhắc {context.title}; cần trao đổi thêm về căn và phần tiền mỗi người."
     return {"profile": profile, "score": result.score, "score_version": result.version,
             "similarities": result.similarities, "differences": result.differences, "warnings": result.warnings,
-            "living": living, "context_reason": context_reason,
-            "saved": m.SavedCandidate.objects.filter(owner=actor, candidate=profile).exists()}
+            "living": living, "lifestyle_sections": lifestyle_sections,
+            "behavior": source.behavior_metrics if source else None,
+            "context_reason": context_reason,
+            "saved": m.SavedCandidate.objects.filter(owner=actor, candidate=profile).exists() if saved is None else saved}
 
 
-def candidate_rows(actor, area="", rent=None, context=None, include_decided=False):
+def candidate_rows(actor, area="", rent=None, context=None, include_decided=False, build_cards=True):
     if not actor.is_published or not actor.completed:
         return []
-    candidates = Profile.objects.filter(is_published=True).exclude(pk=actor.pk).select_related("answers", "living")
-    if not settings.DEBUG:
-        candidates = candidates.filter(is_synthetic=False)
+    blocked_ids = s.blocked_profile_ids(actor)
+    saved_ids = set(m.SavedCandidate.objects.filter(owner=actor).values_list("candidate_id", flat=True))
+    candidates = recommendable_profiles().exclude(pk=actor.pk).exclude(pk__in=blocked_ids).filter(
+        rent_min__lte=actor.rent_max, rent_max__gte=actor.rent_min
+    ).select_related("answers", "living", "sample_source")
+    if rent is not None:
+        candidates = candidates.filter(rent_min__lte=rent, rent_max__gte=rent)
     if not include_decided:
         candidates = candidates.exclude(pk__in=actor.swipes.values("target_id"))
+        candidates = candidates.exclude(pk__in=m.Connection.objects.filter(low=actor, active=True).values("high_id"))
+        candidates = candidates.exclude(pk__in=m.Connection.objects.filter(high=actor, active=True).values("low_id"))
     rows = []
     for profile in candidates:
         if area and area not in profile.areas:
             continue
-        if rent is not None and not profile.rent_min <= rent <= profile.rent_max:
-            continue
-        if not include_decided and m.Connection.objects.filter(s.pair_query(actor, profile), active=True).exists():
-            continue
         try:
-            result = s.eligible_target(actor, profile)
+            result = s._eligible_target(actor, profile, blocked=False)
         except s.DomainError:
             continue
-        rows.append(candidate_card(actor, profile, result, context))
+        if build_cards:
+            rows.append(candidate_card(actor, profile, result, context, saved=profile.pk in saved_ids))
+        else:
+            # Rank every eligible person, but expand display details only for the page shown.
+            rows.append({"profile": profile, "score": result.score, "result": result,
+                         "living": getattr(profile, "living", None), "saved": profile.pk in saved_ids})
     return sorted(rows, key=lambda row: (-row["score"], row["profile"].pk))
 
 
 @page
 def discover(request):
     actor = request.actor
+    view_mode = request.GET.get("view", request.session.get("roomora_discovery_view", "list"))
+    if view_mode not in ("list", "swipe"):
+        raise s.DomainError("Cách xem không hợp lệ.")
+    if "view" in request.GET and request.session.get("roomora_discovery_view") != view_mode:
+        request.session["roomora_discovery_view"] = view_mode
     context = s.room_for(actor, number(request.GET["room"])) if request.GET.get("room") else None
     area = request.GET.get("area", "")
     rent = number(request.GET.get("rent")) if request.GET.get("rent") else None
-    rows = candidate_rows(actor, area, rent, context)
+    rows = candidate_rows(actor, area, rent, context, build_cards=False)
     fingerprint = hashlib.sha256(json.dumps([(row["profile"].pk, row["score"], str(row["profile"].updated_at), row["living"].version if row["living"] else 0) for row in rows]).encode()).hexdigest()
     start = 0
     if request.GET.get("cursor"):
@@ -139,9 +174,30 @@ def discover(request):
             raise s.DomainError("Danh sách đã thay đổi. Mở lại Tìm bạn để xem hồ sơ mới nhất.", 409)
     next_cursor = signing.dumps({"actor": actor.pk, "fingerprint": fingerprint, "filters": [area, rent, context.pk if context else None], "start": start + 10}, salt="journey-deck") if start + 10 < len(rows) else ""
     s.checkpoint(actor, reverse("journey:discover"))
-    from core.constants import AREAS
-    return render(request, "journey/discover.html", {"cards": rows[start:start + 10], "next_cursor": next_cursor,
-                  "actor": actor, "areas": AREAS, "selected_area": area, "rent": rent or "", "room_context": context})
+    cards = [candidate_card(actor, row["profile"], row["result"], context, saved=row["saved"])
+             for row in rows[start:start + 10]]
+    from django.http import QueryDict
+    parameters = QueryDict(mutable=True)
+    for key in ("area", "rent", "room", "cursor"):
+        if request.GET.get(key):
+            parameters[key] = request.GET[key]
+    parameters["view"] = "list"
+    list_url = "?" + parameters.urlencode()
+    parameters["view"] = "swipe"
+    swipe_url = "?" + parameters.urlencode()
+    parameters["view"] = view_mode
+    parameters.pop("cursor", None)
+    parameters.pop("area", None)
+    all_areas_url = "?" + parameters.urlencode()
+    if area:
+        parameters["area"] = area
+    if next_cursor:
+        parameters["cursor"] = next_cursor
+    next_url = "?" + parameters.urlencode() if next_cursor else ""
+    return render(request, "journey/discover.html", {"cards": cards, "next_cursor": next_cursor,
+                  "actor": actor, "areas": actor.areas, "selected_area": area, "rent": rent or "", "room_context": context,
+                  "view_mode": view_mode, "list_url": list_url, "swipe_url": swipe_url,
+                  "all_areas_url": all_areas_url, "next_url": next_url})
 
 
 @page
@@ -189,19 +245,30 @@ def preferences(request):
 def hub(request):
     actor = request.actor
     conversations = []
+    connected_ids = set()
+    blocked_ids = s.blocked_profile_ids(actor)
     for connection in m.Connection.objects.filter(Q(low=actor) | Q(high=actor), active=True).select_related("low", "high"):
-        if s.is_blocked(connection.low, connection.high):
+        other = connection.other(actor)
+        if other.pk in blocked_ids:
             continue
         conversation = connection.conversations.filter(generation=connection.generation).first()
         if conversation:
-            conversations.append({"conversation": conversation, "other": connection.other(actor)})
-    incoming = []
-    for swipe in m.SwipeDecision.objects.filter(target=actor, choice="like").select_related("actor__answers", "actor__living"):
-        try:
-            if not m.Connection.objects.filter(s.pair_query(actor, swipe.actor), active=True).exists():
-                incoming.append(candidate_card(actor, swipe.actor))
-        except s.DomainError:
+            connected_ids.add(other.pk)
+            conversations.append({"conversation": conversation, "other": other,
+                                  "last_message": conversation.messages.select_related("sender").order_by("-pk").first()})
+    available_ids = set(recommendable_profiles().values_list("pk", flat=True))
+    outgoing = []
+    for swipe in m.SwipeDecision.objects.filter(actor=actor, choice=m.SwipeDecision.LIKE).select_related("target").order_by("-updated_at"):
+        if (swipe.target_id in connected_ids or swipe.target_id not in available_ids
+                or swipe.target_id in blocked_ids):
             continue
+        outgoing.append({"profile": swipe.target, "sent_at": swipe.updated_at})
+    incoming = []
+    for swipe in m.SwipeDecision.objects.filter(target=actor, choice=m.SwipeDecision.LIKE).select_related("actor").order_by("-updated_at"):
+        if (swipe.actor_id in connected_ids or not swipe.actor.is_published
+                or swipe.actor_id in blocked_ids):
+            continue
+        incoming.append({"profile": swipe.actor, "sent_at": swipe.updated_at})
     invites = []
     for workspace in m.SearchWorkspace.objects.filter(invitee=actor, status="pending").select_related("inviter"):
         try:
@@ -215,7 +282,9 @@ def hub(request):
             workspaces.append(s.workspace_for(actor, membership.workspace_id))
         except s.DomainError:
             continue
-    return render(request, "journey/hub.html", {"conversations": conversations, "incoming": incoming, "invites": invites, "workspaces": workspaces})
+    return render(request, "journey/hub.html", {"conversations": conversations, "outgoing": outgoing,
+                                                "incoming": incoming, "invites": invites, "workspaces": workspaces,
+                                                "widget_client_id": uuid.uuid4()})
 
 
 @page
@@ -224,7 +293,7 @@ def chat(request, conversation_id):
     s.checkpoint(request.actor, request.path)
     other = conversation.connection.other(request.actor)
     result = score_profiles(request.actor, other)
-    opener = f"Chào {other.name}, mình muốn trao đổi thêm về {result.similarities[0].lower()} và kế hoạch tìm nhà. Bạn thấy thế nào?" if result.similarities else f"Chào {other.name}, mình muốn tìm hiểu nhu cầu ở ghép của bạn. Mình cùng trao đổi nhé?"
+    opener = f"Chào {other.name}, một điểm hợp của chúng ta là: {result.similarities[0]} Mình muốn trao đổi thêm về kế hoạch tìm nhà. Bạn thấy thế nào?" if result.similarities else f"Chào {other.name}, mình muốn tìm hiểu nhu cầu ở ghép của bạn. Mình cùng trao đổi nhé?"
     facts = []
     for fact in conversation.facts.select_related("source", "author").order_by("-pk"):
         consent_ids = set(fact.consents.filter(version=fact.version).values_list("member_id", flat=True))
@@ -258,6 +327,20 @@ def messages(request, conversation_id):
     return JsonResponse({"messages": [{"id": row.pk, "sender": row.sender.name, "mine": row.sender_id == request.actor.pk, "body": row.body, "created_at": row.created_at.isoformat()} for row in rows], "next_before": rows[0].pk if len(rows) == 50 else None})
 
 
+@page
+def pair_messages(request, profile_id):
+    target = profile_by_id(profile_id)
+    connection, conversation = s.pair_chat_for(request.actor, target)
+    after = number(request.GET.get("after"), 0)
+    if after < 0:
+        raise s.DomainError("Mã tin nhắn không hợp lệ.")
+    rows = list(conversation.messages.select_related("sender").filter(pk__gt=after).order_by("pk")[:50]) if conversation else []
+    return JsonResponse({"messages": [{"id": row.pk, "sender": row.sender.name,
+                                      "mine": row.sender_id == request.actor.pk, "body": row.body,
+                                      "created_at": row.created_at.isoformat()} for row in rows],
+                         "connected": connection.active})
+
+
 def choice_context(workspace):
     proposal = workspace.proposals.select_related("room", "scenario", "workspace").order_by("-pk").first()
     calculation = None
@@ -278,9 +361,10 @@ def workspace(request, workspace_id):
     s.checkpoint(request.actor, request.path, workspace)
     context = choice_context(workspace)
     agreement = m.Agreement.objects.filter(workspace=workspace).select_related("choice__room", "choice__scenario", "choice__workspace").first()
-    board_rooms = list(workspace.rooms.prefetch_related("opinions__member", "images"))
+    board_rooms = list(workspace.rooms.prefetch_related("opinions__member", "images", "costs"))
     for option in board_rooms:
         option.member_opinions = opinions_for_room(option)
+        option.cost_overview = room_cost_overview(option)
     context.update({"workspace": workspace, "actor": request.actor, "rooms": board_rooms,
                     "members": workspace.members.filter(active=True).select_related("profile"), "agreement_confirmed": s.agreement_confirmed(agreement) if agreement else False,
                     "tasks": [{"task": task, "form": f.TaskForm(instance=task, workspace=workspace, auto_id=f"id_task_{task.pk}_%s")} for task in workspace.tasks.select_related("assignee")],
@@ -291,7 +375,31 @@ def workspace(request, workspace_id):
 
 @page
 def rooms(request):
-    return render(request, "journey/rooms.html", {"rooms": request.actor.room_options.filter(workspace__isnull=True).prefetch_related("images", "costs")})
+    private_rooms = list(request.actor.room_options.filter(workspace__isnull=True).prefetch_related("images", "costs").order_by("-pk"))
+    for option in private_rooms:
+        option.cost_overview = room_cost_overview(option)
+    workspaces = []
+    for membership in request.actor.workspaces.filter(active=True, workspace__status="active").select_related("workspace"):
+        try:
+            current = s.workspace_for(request.actor, membership.workspace_id)
+            current.room_count = current.rooms.count()
+            workspaces.append(current)
+        except s.DomainError:
+            continue
+    return render(request, "journey/rooms.html", {"rooms": private_rooms, "workspaces": workspaces})
+
+
+def room_cost_overview(room):
+    costs = [{"label": cost.label, "period": cost.period, "state": cost.state,
+              "amount": cost.amount, "source": cost.source} for cost in room.costs.all()]
+    # Card figures are for the whole room; individual shares stay in the detail page.
+    result = calculate_shared_costs(costs, [{"id": room.owner_id}])
+    monthly_entered = any(cost["period"] == "monthly" for cost in result["details"])
+    return {"monthly": result["totals"]["monthly"] if monthly_entered else None,
+            "upfront": result["totals"]["upfront"] if result["details"] else None,
+            "monthly_partial": monthly_entered and not result["monthly_complete"],
+            "upfront_partial": bool(result["details"]) and not result["complete"],
+            "estimated": bool(result["estimated"]), "missing_count": len(result["unknown"])}
 
 
 @page
@@ -392,16 +500,7 @@ def agreement(request, workspace_id):
 
 @page
 def notifications(request):
-    for event_id in m.OutboxEvent.objects.filter(delivered=False).values_list("pk", flat=True)[:100]:
-        s.deliver_safely(event_id)
-    rows = []
-    for notification in request.actor.notifications.select_related("event").order_by("-pk")[:100]:
-        if notification.event.workspace_id:
-            try:
-                s.workspace_for(request.actor, notification.event.workspace_id)
-            except s.DomainError:
-                continue
-        rows.append(notification)
+    rows = s.visible_notifications(request.actor).select_related("event").order_by("-pk")[:100]
     return render(request, "journey/notifications.html", {"notifications_list": rows})
 
 
@@ -431,6 +530,8 @@ def perform(request, action):
             conversation = s.decide(actor, target, action)
             if conversation:
                 destination = reverse("journey:chat", args=[conversation.pk])
+            elif action == "like":
+                destination = f"{reverse('journey:hub')}?chat={target.pk}"
         elif action == "save-candidate":
             s.eligible_target(actor, target)
             if yes_no(data, "saved"):
@@ -478,9 +579,14 @@ def perform(request, action):
             living.version += 1
         living.save()
         destination = reverse("journey:preferences")
+    elif action == "message" and data.get("target"):
+        target = profile_by_id(data.get("target"))
+        s.send_pair_message(actor, target, text(data, "body", 4000, True), data.get("client_id"))
+        destination = reverse("journey:hub")
     elif action in ("message", "workspace-invite", "fact-pin", "fact-edit", "fact-consent"):
         conversation = s.conversation_for(actor, number(data.get("conversation")), lock=True)
-        destination = reverse("journey:chat", args=[conversation.pk])
+        destination = (reverse("journey:chat", args=[conversation.pk]) if conversation.connection.active
+                       else f"{reverse('journey:hub')}?chat={conversation.connection.other(actor).pk}")
         if action == "message":
             s.send_message(actor, conversation.pk, text(data, "body", 4000, True), data.get("client_id"))
         elif action == "workspace-invite":
@@ -567,6 +673,8 @@ def perform(request, action):
         elif action == "image-upload":
             form = f.ImageUploadForm(data, request.FILES)
             clean_form(form)
+            from .upload_limits import check_room_image_budget
+            check_room_image_budget(actor, form.cleaned_data["image"])
             m.RoomImage.objects.create(room=room, image=form.cleaned_data["image"], caption=form.cleaned_data["caption"], creator=actor)
             if room.workspace_id:
                 s.emit(s.member_ids(room.workspace), "Có ảnh mới để kiểm tra căn và điều cần hỏi", destination, room.workspace)
@@ -739,7 +847,10 @@ def action(request, action):
             digest.update(chunk)
         payload["file:" + key] = digest.hexdigest()
         uploaded.seek(0)
-    response = s.run_mutation(request.actor, action, request.POST.get("mutation_key"), payload, lambda: perform(request, action))
+    try:
+        response = s.run_mutation(request.actor, action, request.POST.get("mutation_key"), payload, lambda: perform(request, action))
+    except UploadCapacityError:
+        raise s.DomainError(UploadCapacityError.message, 503)
     if request.headers.get("Accept") == "application/json":
         return JsonResponse(response)
     return redirect(response["redirect"])

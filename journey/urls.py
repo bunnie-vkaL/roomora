@@ -11,6 +11,7 @@ urlpatterns = [
     path("preferences/", views.preferences, name="preferences"),
     path("chat/<int:conversation_id>/", views.chat, name="chat"),
     path("chat/<int:conversation_id>/messages/", views.messages, name="messages"),
+    path("chat-with/<int:profile_id>/messages/", views.pair_messages, name="pair-messages"),
     path("workspace/<int:workspace_id>/", views.workspace, name="workspace"),
     path("workspace/<int:workspace_id>/agreement/", views.agreement, name="agreement"),
     path("rooms/", views.rooms, name="rooms"),
