@@ -546,7 +546,7 @@ def resume(request):
             except DomainError:
                 return redirect("journey:hub")
         # Checkpoints are written by our views; never trust a client supplied destination.
-        if cp.path.startswith("/roommate/") and "//" not in cp.path and "\\" not in cp.path:
+        if cp.path.startswith("/roommates/") and "//" not in cp.path and "\\" not in cp.path:
             return redirect(cp.path)
     return redirect("journey:hub")
 

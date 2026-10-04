@@ -124,7 +124,7 @@ class FlowTests(TestCase):
         newcomer.answers.save()
         newcomer.is_published = True
         newcomer.save()
-        self.assertRedirects(self.client.get("/dashboard/"), "/roommate/discover/")
+        self.assertRedirects(self.client.get("/dashboard/"), "/roommates/")
 
     def test_about_shows_area_recommendations_only_for_selected_profile_area(self):
         self.assertContains(self.client.get("/about/"), "Gợi ý theo khu vực")
@@ -822,7 +822,7 @@ class RoommateWorkflowTests(TestCase):
     def test_notifications_are_durable_idempotent_and_respect_preferences_and_membership(self):
         workspace = self.together()
         m.LivingPreferences.objects.create(profile=self.b, notifications_enabled=False)
-        event = s.emit([self.a.pk, self.b.pk], "Thông tin mới", "/roommate/", workspace)
+        event = s.emit([self.a.pk, self.b.pk], "Thông tin mới", "/roommates/", workspace)
         with patch("core.services.deliver_event", side_effect=RuntimeError("temporary")):
             with self.assertLogs("core.services", level="ERROR"):
                 s.deliver_safely(event.pk)

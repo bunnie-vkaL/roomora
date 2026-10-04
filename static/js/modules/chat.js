@@ -36,7 +36,7 @@ export function initChat(postFn, draftsMap) {
 
     const pinForm = document.createElement("form");
     pinForm.method = "post";
-    pinForm.action = "/roommate/action/fact-pin/";
+    pinForm.action = "/roommates/action/fact-pin/";
 
     const hidden = (name, value) => {
       const input = document.createElement("input");
