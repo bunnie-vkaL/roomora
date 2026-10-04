@@ -262,6 +262,7 @@ def conversation_for(actor, conversation_id, lock=False, allow_pending=False):
     connection = conversation.connection
     if lock:
         connection = Connection.objects.select_for_update().get(pk=connection.pk)
+        conversation.connection = connection
     if actor.pk not in (connection.low_id, connection.high_id) or is_blocked(connection.low, connection.high):
         raise DomainError("Cuộc trò chuyện không khả dụng.", 403)
     if not connection.active:

@@ -186,4 +186,158 @@ export function initChat(postFn, draftsMap) {
       button.disabled = false;
     }
   });
+
+  initConnectionWidget(postFn);
 }
+
+export function initConnectionWidget(postFn) {
+  const widget = document.querySelector("[data-connection-widget]");
+  if (!widget || widget.dataset.initialized) return;
+  widget.dataset.initialized = "true";
+
+  const panel = widget.querySelector("[data-chat-panel]");
+  const toggle = widget.querySelector("[data-chat-toggle]");
+  const close = widget.querySelector("[data-chat-close]");
+  const heading = widget.querySelector("[data-chat-heading]");
+  const state = widget.querySelector("[data-chat-state]");
+  const log = widget.querySelector("[data-chat-widget-log]");
+  const form = widget.querySelector("[data-chat-widget-form]");
+  const error = widget.querySelector("[data-chat-widget-error]");
+  let selected = null, lastId = 0, loadingVersion = null, sending = false, selectionVersion = 0;
+
+  const showPanel = () => {
+    panel.hidden = false;
+    toggle.hidden = true;
+    toggle.setAttribute("aria-expanded", "true");
+  };
+
+  const hidePanel = () => {
+    panel.hidden = true;
+    toggle.hidden = false;
+    toggle.setAttribute("aria-expanded", "false");
+  };
+
+  const render = message => {
+    if (log.querySelector(`[data-widget-message-id="${message.id}"]`)) return;
+    const item = document.createElement("div");
+    item.className = `connection-widget-message${message.mine ? " mine" : ""}`;
+    item.dataset.widgetMessageId = message.id;
+    const author = document.createElement("strong");
+    author.textContent = message.mine ? "Bạn" : message.sender;
+    const body = document.createElement("p");
+    body.textContent = message.body;
+    const time = document.createElement("time");
+    time.textContent = new Date(message.created_at).toLocaleString("vi-VN", {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+    });
+    item.append(author, body, time);
+    log.append(item);
+  };
+
+  async function refresh() {
+    if (!selected || loadingVersion === selectionVersion) return;
+    const version = selectionVersion;
+    loadingVersion = version;
+    try {
+      let more = true;
+      while (more) {
+        const response = await fetch(`${selected.url}?after=${lastId}`, {
+          headers: { Accept: "application/json" },
+          credentials: "same-origin"
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          const failure = new Error(result.error || "Không tải được tin nhắn.");
+          failure.status = response.status;
+          throw failure;
+        }
+        if (version !== selectionVersion) return;
+        state.textContent = result.connected ? "Đã kết nối" : "Đang chờ đồng ý kết nối";
+        log.querySelector("[data-widget-empty]")?.remove();
+        const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+        result.messages.forEach(message => {
+          render(message);
+          lastId = message.id;
+        });
+        more = result.messages.length === 50;
+        if (atBottom) log.scrollTop = log.scrollHeight;
+      }
+      if (!log.children.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.dataset.widgetEmpty = "";
+        empty.textContent = "Chưa có tin nhắn. Hãy gửi lời chào đầu tiên.";
+        log.append(empty);
+      }
+      if (error) error.textContent = "";
+    } catch (failure) {
+      if (version === selectionVersion && error) {
+        error.textContent = failure.message;
+        if (failure.status === 403) {
+          form.elements.body.disabled = true;
+          form.querySelector("button[type=submit]").disabled = true;
+        }
+      }
+    } finally {
+      if (loadingVersion === version) loadingVersion = null;
+    }
+  }
+
+  const openChat = button => {
+    if (sending) return;
+    selectionVersion += 1;
+    selected = { id: button.dataset.chatPerson, url: button.dataset.chatUrl };
+    lastId = 0;
+    log.replaceChildren();
+    if (error) error.textContent = "";
+    heading.textContent = button.dataset.chatName;
+    state.textContent = "Đang tải cuộc trò chuyện…";
+    form.elements.target.value = selected.id;
+    form.elements.body.value = "";
+    form.elements.body.disabled = false;
+    form.querySelector("button[type=submit]").disabled = false;
+    form.elements.client_id.value = generateUUID();
+    showPanel();
+    refresh();
+    form.elements.body.focus();
+  };
+
+  document.querySelectorAll("[data-chat-person]").forEach(button => {
+    button.addEventListener("click", () => openChat(button));
+  });
+
+  toggle?.addEventListener("click", () => panel.hidden ? showPanel() : hidePanel());
+  close?.addEventListener("click", hidePanel);
+
+  form?.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!selected || sending || !form.reportValidity()) return;
+    sending = true;
+    const button = form.querySelector("button[type=submit]");
+    if (button) button.disabled = true;
+    const body = form.elements.body.value;
+    try {
+      await postFn(form);
+      form.elements.body.value = "";
+      form.elements.client_id.value = generateUUID();
+      await refresh();
+    } catch (failure) {
+      if (error) error.textContent = failure.message;
+      form.elements.body.value = body;
+    } finally {
+      sending = false;
+      if (button) button.disabled = false;
+    }
+  });
+
+  const initial = new URLSearchParams(location.search).get("chat");
+  const initialButton = [...document.querySelectorAll("[data-chat-person]")].find(
+    button => button.dataset.chatPerson === initial
+  );
+  if (initialButton) openChat(initialButton);
+
+  setInterval(() => {
+    if (!panel.hidden && selected) refresh();
+  }, 4000);
+}
+
