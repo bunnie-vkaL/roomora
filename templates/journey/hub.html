@@ -1,19 +1,23 @@
 {% extends 'journey/base.html' %}
 {% block extra_head %}<style>
-.connection-manage { position: relative; }
-.connection-manage summary { list-style: none; cursor: pointer; }
+.hub-chat-actions > button,
+.connection-manage > summary { min-height: 42px; box-sizing: border-box; }
+.connection-manage { position: relative; flex: 0 0 auto; }
+.connection-manage > summary { display: inline-flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 10px 14px; border: 1px solid #d9cbbd; border-radius: 10px; background: #fffdf9; color: #59372e; font-size: .86rem; font-weight: 700; }
+.connection-manage > summary::after { content: "\f107"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: .82rem; line-height: 1; color: var(--clay, #944c34); }
+.connection-manage[open] > summary { border-color: #d97837; background: #fff4e8; color: #b85e2b; }
 .connection-manage summary::-webkit-details-marker { display: none; }
-.connection-manage-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 5; min-width: 190px; padding: 8px; background: var(--paper, #fffdf8); border: 1px solid var(--warm-line, #dcd4c5); border-radius: 12px; box-shadow: 0 12px 30px #4e392b1c; }
-.connection-manage-menu form { margin: 0; }
-.connection-manage-menu button { width: 100%; padding: 9px 10px; text-align: left; background: transparent; color: var(--clay, #944c34); box-shadow: none; }
-.connection-manage-menu button:hover { background: var(--soft-clay, #f5e7df); }
+.connection-manage-menu { position: absolute; right: 0; top: calc(100% + 12px); z-index: 20; min-width: 190px; box-sizing: border-box; padding: 7px; background: #fff; border: 1px solid var(--line, #ddd5c9); border-radius: 10px; box-shadow: 0 12px 28px rgba(17, 17, 17, .12); }
+.connection-manage-menu form { margin: 0; border: 0; }
+.connection-manage-menu button { display: block; width: 100%; min-height: 0; padding: 9px 10px; text-align: left; background: transparent !important; border: 0; border-radius: 8px; color: var(--black, #3d2b27) !important; box-shadow: none !important; transform: none !important; font: 500 .86rem var(--sans, sans-serif); }
+.connection-manage-menu button:hover { background: var(--beige, #f3ede4) !important; color: var(--black, #3d2b27) !important; }
+@media (max-width: 540px) { .connection-manage-menu { right: auto; left: 0; } }
 </style>{% endblock %}
 {% block journey_content %}
 <section class="journey-heading">
   <div><p class="eyebrow">Kết nối của bạn</p><h1>Những cuộc trò chuyện<br>đang chờ bắt đầu.</h1><p>Cả hai đồng ý kết nối mới mở chat. Sau đó, hai bạn có thể trao đổi nhu cầu ở ghép.</p></div>
   <a class="button" href="{% url 'journey:discover' %}">Xem gợi ý</a>
 </section>
-<nav class="hub-shortcuts" aria-label="Công cụ khác"><a href="{% url 'journey:rooms' %}">Căn đã lưu →</a></nav>
 
 <section class="section" aria-labelledby="connected-heading">
   <div class="hub-section-heading"><div><p class="eyebrow">Cùng quan tâm</p><h2 id="connected-heading">Bạn đã kết nối</h2><p>Hai bạn đều chọn kết nối. Hộp chat đã mở để trao đổi nhu cầu ở ghép.</p></div><span class="hub-count">{{ conversations|length }}</span></div>
@@ -44,18 +48,4 @@
 
 <section class="section"><h2>Lời mời cùng tìm nhà</h2><div class="grid two">{% for invite in invites %}<article><h3>{{ invite.title }}</h3><p>{{ invite.inviter.name }} muốn mở không gian cùng tìm với bạn.</p><form method="post" action="{% url 'journey:action' 'workspace-response' %}">{% include 'journey/fields.html' %}<input type="hidden" name="workspace" value="{{ invite.pk }}"><button name="accepted" value="1">Đồng ý cùng tìm</button><button class="secondary" name="accepted" value="0">Chưa cùng tìm</button></form></article>{% empty %}<section class="empty"><p>Chưa có lời mời đang chờ.</p></section>{% endfor %}</div></section>
 <section class="section"><h2>Không gian tìm nhà chung</h2><div class="grid two">{% for workspace in workspaces %}<article><p class="eyebrow">{{ workspace.get_status_display }}</p><h3>{{ workspace.title }}</h3><a class="button" href="{% url 'journey:workspace' workspace.pk %}">Vào không gian chung</a></article>{% empty %}<section class="empty"><p>Từ chat, đề xuất cùng tìm nhà. Không gian chung mở khi đối phương đồng ý.</p><a class="button secondary" href="{% url 'journey:rooms' %}">Lưu căn riêng trước</a></section>{% endfor %}</div></section>
-<aside class="connection-widget" data-connection-widget aria-label="Hộp tin nhắn">
-  <button type="button" class="connection-widget-toggle" data-chat-toggle aria-label="Tin nhắn" title="Tin nhắn" aria-expanded="false"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i></button>
-  <div class="connection-widget-panel" data-chat-panel hidden>
-    <header class="connection-widget-header"><div><small>ROOMORA · TIN NHẮN</small><strong data-chat-heading>Chọn người để trò chuyện</strong><span data-chat-state>Chỉ chat sau kết nối hai chiều</span></div><button type="button" class="connection-widget-close" data-chat-close aria-label="Đóng hộp chat">×</button></header>
-    <div class="connection-widget-log" data-chat-widget-log role="log" aria-live="polite"><p class="muted">Chọn “Nhắn tin” ở một hồ sơ để bắt đầu.</p></div>
-    <form method="post" action="{% url 'journey:action' 'message' %}" data-chat-widget-form>
-      {% include 'journey/fields.html' %}<input type="hidden" name="target" value=""><input type="hidden" name="client_id" value="{{ widget_client_id }}">
-      <label class="sr-only" for="widget-message">Nội dung tin nhắn</label><textarea id="widget-message" name="body" rows="2" maxlength="4000" placeholder="Nhập tin nhắn…" required disabled></textarea>
-      <button type="submit" aria-label="Gửi tin nhắn" disabled>➤</button>
-    </form>
-    <p class="connection-widget-note">Cả hai đã đồng ý kết nối. Cùng tìm nhà là một lời mời riêng.</p>
-    <p class="connection-widget-error" data-chat-widget-error role="status"></p>
-  </div>
-</aside>
 {% endblock %}

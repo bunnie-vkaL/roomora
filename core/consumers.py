@@ -84,3 +84,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         payload = await message_payload(event["message_id"], self.actor_id)
         if payload:
             await self.send_json(payload)
+
+    async def chat_system(self, event):
+        await self.send_json(event["payload"])

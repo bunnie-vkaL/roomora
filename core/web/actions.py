@@ -1,6 +1,7 @@
 """Actions, notifications, and resume views."""
 
 import hashlib
+import uuid
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -423,7 +424,10 @@ def action(request, action):
             digest.update(chunk)
         payload["file:" + key] = digest.hexdigest()
         uploaded.seek(0)
-    response = run_mutation(request.actor, action, request.POST.get("mutation_key"), payload, lambda: perform(request, action))
+    # Chat has its own client_id retry guard and realtime stream. Do not let a
+    # stale HTML form mutation key block an otherwise valid new message.
+    mutation_key = uuid.uuid4() if action == "message" else request.POST.get("mutation_key")
+    response = run_mutation(request.actor, action, mutation_key, payload, lambda: perform(request, action))
     if request.headers.get("Accept") == "application/json":
         return JsonResponse(response)
     return redirect(response["redirect"])

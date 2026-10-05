@@ -31,7 +31,7 @@ function connect(path, onMessage) {
 export function connectChatRealtime(path, onMessage) {
   if (!path || !window.WebSocket) return () => {};
   return connect(path, message => {
-    if (message.type === "chat.message") onMessage(message);
+    if (message.type === "chat.message" || message.type === "chat.system") onMessage(message);
   });
 }
 

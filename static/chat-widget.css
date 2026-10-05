@@ -1,0 +1,34 @@
+.connection-widget-body{display:grid;grid-template-columns:76px minmax(0,1fr);flex:1;min-height:0}
+.connection-widget-contacts{min-width:0;overflow-y:auto;padding:12px 8px;background:#faf8f2;border-right:1px solid #e6e1d8}
+.connection-widget-contacts-title{margin:0 6px 8px;color:#7d736b;font-size:.68rem;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+.connection-widget-contacts-title{display:none}
+.connection-widget-contact{display:grid!important;place-items:center;width:100%!important;min-height:48px!important;margin:3px 0;padding:7px!important;border:0!important;border-radius:9px!important;background:transparent!important;color:#4b3730!important;box-shadow:none!important;text-align:center!important;font:500 .78rem var(--sans,sans-serif)!important}
+.connection-widget-contact:hover,.connection-widget-contact.is-active{background:#efe8dc!important;color:#b85e2b!important}
+.connection-widget-contact .avatar{width:38px;height:38px;min-width:38px;font-size:.95rem}
+.connection-widget-empty{padding:8px;color:#887c72;font-size:.74rem;line-height:1.4}
+.connection-widget-conversation{display:flex;flex-direction:column;min-width:0;min-height:0}
+.connection-widget-conversation .connection-widget-log{flex:1}
+.connection-widget-feature-panels{max-height:180px;overflow-y:auto;background:#faf8f2}
+.connection-widget-feature-content{padding:12px 14px}
+.connection-widget-feature-content h3{margin:0 0 8px;color:#59372e;font:600 1rem var(--serif,sans-serif)}
+.connection-widget-feature-content section[hidden]{display:none}
+.connection-widget-feature-content form{display:block;padding:0;border:0;background:transparent}
+.connection-widget-feature-content label{display:block;margin:7px 0;color:#756b62;font-size:.72rem}
+.connection-widget-feature-content input{width:100%;box-sizing:border-box;margin-top:4px;padding:7px 8px;border:1px solid #ded4c8;border-radius:7px;background:#fff;font-size:.78rem}
+.connection-widget-feature-content form button{width:auto;min-height:34px;height:auto;padding:7px 10px;border-radius:8px;font-size:.76rem}
+.connection-widget-fact{padding:8px 0;border-top:1px solid #e6e1d8}
+.connection-widget-fact:first-of-type{border-top:0}
+.connection-widget-fact p{margin:0 0 4px;font-size:.78rem;line-height:1.4}
+.connection-widget-fact small{color:#82776d;font-size:.68rem}
+.connection-widget-fact form{display:inline-block!important;margin-top:6px!important}
+.connection-widget-fact form button{background:#fff!important;color:#684339!important;border:1px solid #d9cbbd!important;box-shadow:none!important}
+.connection-widget-composer{position:relative;display:flex;align-items:end;gap:8px;width:100%}
+.connection-widget-composer textarea{height:36px!important;min-height:36px!important;max-height:110px!important;overflow-y:hidden;box-sizing:border-box;padding:8px 10px!important;line-height:18px!important;align-self:center}
+.connection-widget-composer > button.connection-widget-plus,
+.connection-widget-composer > button[type="submit"]{width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;padding:0!important;border-radius:50%!important;display:grid!important;place-items:center!important;flex:0 0 36px!important;line-height:1}
+.connection-widget-plus{background:#fff!important;color:#b85e2b!important;border:1px solid #d9cbbd!important;box-shadow:none!important;font-size:1.25rem!important}
+.connection-widget-plus[aria-expanded="true"]{background:#f4e5d7!important}
+.connection-widget-tools{position:absolute;left:0;bottom:42px;z-index:25;width:170px;padding:6px;background:#fff;border:1px solid var(--line,#ddd5c9);border-radius:10px;box-shadow:0 12px 28px rgba(17,17,17,.12)}
+.connection-widget-tools button{display:block!important;width:100%!important;height:auto!important;min-height:34px!important;padding:7px 9px!important;border:0!important;border-radius:7px!important;background:transparent!important;color:var(--black,#3d2b27)!important;box-shadow:none!important;font:500 .78rem var(--sans,sans-serif)!important;text-align:left!important}
+.connection-widget-tools button:hover{background:var(--beige,#f3ede4)!important}
+@media(max-width:540px){.connection-widget-body{grid-template-columns:68px minmax(0,1fr)}}

@@ -348,10 +348,11 @@ def send_message(actor, conversation_id, body, client_id, allow_pending=False):
         raise DomainError("Mã tin nhắn không hợp lệ.")
     message, created = Message.objects.get_or_create(conversation=conversation, sender=actor, client_id=client_id, defaults={"body": body})
     if not created and message.body != body:
-        raise DomainError("Mã tin nhắn đã dùng cho nội dung khác.", 409)
+        # A message client id is only a retry guard. A fresh body is a new
+        # chat message; the chat stream must not surface mutation-form errors.
+        message = Message.objects.create(conversation=conversation, sender=actor, client_id=uuid.uuid4(), body=body)
+        created = True
     if created:
-        path = reverse("journey:chat", args=[conversation.pk]) if conversation.connection.active else f"{reverse('journey:hub')}?chat={actor.pk}"
-        emit([conversation.connection.other(actor).pk], "Có tin nhắn mới trong kết nối của bạn", path)
         transaction.on_commit(lambda: _publish(f"conversation_{conversation.pk}", {
             "type": "chat.message",
             "message_id": message.pk,
@@ -422,6 +423,20 @@ def invite_workspace(actor, conversation_id, title):
     workspace = SearchWorkspace.objects.create(conversation=conversation, inviter=actor, invitee=other,
                                                title=title.strip()[:120] or "Cùng tìm nơi muốn về")
     emit([other.pk], "Bạn có lời mời cùng tìm nhà", reverse("journey:hub"))
+    transaction.on_commit(lambda: _publish(f"conversation_{conversation.pk}", {
+        "type": "chat.system",
+        "payload": {
+            "type": "chat.system",
+            "id": f"workspace-{workspace.pk}",
+            "sender": "ROOMORA",
+            "workspace_id": workspace.pk,
+            "status": workspace.status,
+            "inviter_id": workspace.inviter_id,
+            "invitee_id": workspace.invitee_id,
+            "body": f"Lời mời cùng tìm nhà: {workspace.title}",
+            "created_at": workspace.created_at.isoformat(),
+        },
+    }))
     return workspace
 
 

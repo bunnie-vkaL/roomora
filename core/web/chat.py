@@ -119,10 +119,18 @@ def pair_messages(request, profile_id):
     if after < 0:
         raise DomainError("Mã tin nhắn không hợp lệ.")
     rows = list(conversation.messages.select_related("sender").filter(pk__gt=after).order_by("pk")[:50]) if conversation else []
-    return JsonResponse({"messages": [{"id": row.pk, "sender": row.sender.name,
-                                      "mine": row.sender_id == request.actor.pk, "body": row.body,
-                                      "created_at": row.created_at.isoformat()} for row in rows],
-                         "connected": connection.active})
-
-
+    messages = [{"id": row.pk, "sender": row.sender.name,
+                 "mine": row.sender_id == request.actor.pk, "body": row.body,
+                 "created_at": row.created_at.isoformat()} for row in rows]
+    if conversation:
+        workspace = conversation.workspaces.filter(status__in=["pending", "active"]).order_by("pk").first()
+        if workspace:
+            body = (f"Lời mời cùng tìm nhà: {workspace.title}" if workspace.status == "pending"
+                    else f"Lời mời cùng tìm nhà đã được đồng ý: {workspace.title}")
+            messages.append({"id": f"workspace-{workspace.pk}", "sender": "ROOMORA", "mine": False,
+                             "system": True, "workspace_id": workspace.pk, "status": workspace.status,
+                             "inviter_id": workspace.inviter_id, "invitee_id": workspace.invitee_id,
+                             "body": body, "created_at": workspace.created_at.isoformat()})
+            messages.sort(key=lambda message: message["created_at"])
+    return JsonResponse({"messages": messages, "connected": connection.active})
 

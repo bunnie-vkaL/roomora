@@ -18,18 +18,26 @@ export function initChat(postFn, draftsMap) {
     chatLog.querySelector("[data-chat-empty]")?.remove();
 
     const div = document.createElement("div");
-    div.className = `chat-message${message.mine ? " mine" : ""}`;
+    const system = message.system || message.type === "chat.system";
+    div.className = `chat-message${message.mine ? " mine" : ""}${system ? " system" : ""}`;
     div.dataset.messageId = message.id;
     div.id = `message-${message.id}`;
 
     const sender = document.createElement("strong");
-    sender.textContent = message.sender;
+    sender.textContent = system ? "ROOMORA" : message.sender;
 
     const body = document.createElement("p");
     body.textContent = message.body;
 
     const time = document.createElement("time");
     time.textContent = new Date(message.created_at).toLocaleString("vi-VN");
+
+    if (system) {
+      div.append(sender, body, time);
+      if (prepend) chatLog.prepend(div);
+      else chatLog.append(div);
+      return;
+    }
 
     const details = document.createElement("details");
     const summary = document.createElement("summary");
@@ -208,6 +216,19 @@ export function initConnectionWidget(postFn) {
   const log = widget.querySelector("[data-chat-widget-log]");
   const form = widget.querySelector("[data-chat-widget-form]");
   const error = widget.querySelector("[data-chat-widget-error]");
+  const contacts = widget.querySelectorAll("[data-chat-person]");
+  const toolsToggle = widget.querySelector("[data-chat-tools-toggle]");
+  const toolsMenu = widget.querySelector("[data-chat-tools-menu]");
+  const featureContents = widget.querySelectorAll("[data-chat-feature-content]");
+  const composerInput = form?.elements.body;
+
+  const resizeComposer = () => {
+    if (!composerInput) return;
+    composerInput.style.height = "36px";
+    const height = Math.min(composerInput.scrollHeight, 110);
+    composerInput.style.height = `${height}px`;
+    composerInput.style.overflowY = composerInput.scrollHeight > 110 ? "auto" : "hidden";
+  };
   let selected = null, lastId = 0, loadingVersion = null, sending = false, selectionVersion = 0, closeRealtime = null;
 
   const showPanel = () => {
@@ -222,13 +243,34 @@ export function initConnectionWidget(postFn) {
     toggle.setAttribute("aria-expanded", "false");
   };
 
+  const showFeature = feature => {
+    if (!selected) return;
+    const content = [...featureContents].find(item => item.dataset.chatFeatureContent === selected.id);
+    if (!content) return;
+    if (feature === "workspace") {
+      const workspaceForm = content.querySelector("[data-chat-workspace-form]");
+      toolsMenu.hidden = true;
+      toolsToggle.setAttribute("aria-expanded", "false");
+      if (workspaceForm) workspaceForm.requestSubmit();
+      else announce("Lời mời cùng tìm nhà đã được gửi hoặc không gian đã mở.");
+      return;
+    }
+    featureContents.forEach(item => { item.hidden = item !== content; });
+    content.querySelectorAll("[data-chat-feature-section]").forEach(section => {
+      section.hidden = section.dataset.chatFeatureSection !== feature;
+    });
+    toolsMenu.hidden = true;
+    toolsToggle.setAttribute("aria-expanded", "false");
+  };
+
   const render = message => {
     if (log.querySelector(`[data-widget-message-id="${message.id}"]`)) return;
     const item = document.createElement("div");
-    item.className = `connection-widget-message${message.mine ? " mine" : ""}`;
+    const system = message.system || message.type === "chat.system";
+    item.className = `connection-widget-message${message.mine ? " mine" : ""}${system ? " system" : ""}`;
     item.dataset.widgetMessageId = message.id;
     const author = document.createElement("strong");
-    author.textContent = message.mine ? "Bạn" : message.sender;
+    author.textContent = system ? "ROOMORA" : (message.mine ? "Bạn" : message.sender);
     const body = document.createElement("p");
     body.textContent = message.body;
     const time = document.createElement("time");
@@ -236,6 +278,29 @@ export function initConnectionWidget(postFn) {
       day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
     });
     item.append(author, body, time);
+    if (system && message.status === "pending" && String(message.invitee_id) === String(widget.dataset.chatActorId)) {
+      const responseForm = document.createElement("form");
+      responseForm.className = "connection-widget-system-actions";
+      responseForm.method = "post";
+      responseForm.action = widget.dataset.chatWorkspaceResponseUrl;
+      const csrf = form?.elements.csrfmiddlewaretoken?.value || "";
+      responseForm.innerHTML = `<input type="hidden" name="csrfmiddlewaretoken" value="${csrf}"><input type="hidden" name="mutation_key" value="${generateUUID()}"><input type="hidden" name="workspace" value="${message.workspace_id}"><button type="submit">Xác nhận cùng tìm nhà</button>`;
+      responseForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        const submit = event.submitter || responseForm.querySelector("button");
+        if (submit) submit.disabled = true;
+        try {
+          await postFn(responseForm, submit);
+          body.textContent = message.body.replace("Lời mời cùng tìm nhà:", "Lời mời cùng tìm nhà đã được đồng ý:");
+          responseForm.remove();
+          announce("Đã xác nhận cùng tìm nhà.");
+        } catch (failure) {
+          announce(failure.message);
+          if (submit) submit.disabled = false;
+        }
+      });
+      item.append(responseForm);
+    }
     log.append(item);
   };
 
@@ -262,7 +327,7 @@ export function initConnectionWidget(postFn) {
         const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
         result.messages.forEach(message => {
           render(message);
-          lastId = message.id;
+          if (Number.isFinite(Number(message.id))) lastId = Math.max(lastId, Number(message.id));
         });
         more = result.messages.length === 50;
         if (atBottom) log.scrollTop = log.scrollHeight;
@@ -298,6 +363,10 @@ export function initConnectionWidget(postFn) {
     log.replaceChildren();
     if (error) error.textContent = "";
     heading.textContent = button.dataset.chatName;
+    contacts.forEach(contact => contact.classList.toggle("is-active", contact === button));
+    featureContents.forEach(content => { content.hidden = true; });
+    toolsMenu.hidden = true;
+    toolsToggle.setAttribute("aria-expanded", "false");
     state.textContent = "Đang tải cuộc trò chuyện…";
     form.elements.target.value = selected.id;
     form.elements.body.value = "";
@@ -308,7 +377,7 @@ export function initConnectionWidget(postFn) {
     closeRealtime = connectChatRealtime(selected.wsUrl, message => {
       const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
       render(message);
-      lastId = Math.max(lastId, Number(message.id));
+      if (Number.isFinite(Number(message.id))) lastId = Math.max(lastId, Number(message.id));
       if (atBottom) log.scrollTop = log.scrollHeight;
     });
     refresh();
@@ -321,6 +390,39 @@ export function initConnectionWidget(postFn) {
 
   toggle?.addEventListener("click", () => panel.hidden ? showPanel() : hidePanel());
   close?.addEventListener("click", hidePanel);
+  composerInput?.addEventListener("input", resizeComposer);
+  resizeComposer();
+  toolsToggle?.addEventListener("click", () => {
+    toolsMenu.hidden = !toolsMenu.hidden;
+    toolsToggle.setAttribute("aria-expanded", String(!toolsMenu.hidden));
+  });
+  widget.querySelectorAll("[data-chat-feature]").forEach(button => {
+    button.addEventListener("click", () => showFeature(button.dataset.chatFeature));
+  });
+
+  widget.querySelectorAll("[data-chat-feature-form]").forEach(featureForm => {
+    featureForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const submit = event.submitter || featureForm.querySelector("button[type=submit]");
+      if (submit) submit.disabled = true;
+      try {
+        await postFn(featureForm, submit);
+        if (featureForm.action.includes("workspace-invite")) {
+          featureForm.replaceWith(Object.assign(document.createElement("p"), {
+            className: "muted",
+            textContent: "Đã gửi lời mời cùng tìm nhà."
+          }));
+          await refresh();
+        } else if (submit) {
+          submit.textContent = "Đã xác nhận";
+        }
+        announce("Đã cập nhật trong cuộc trò chuyện.");
+      } catch (failure) {
+        announce(failure.message);
+        if (submit) submit.disabled = false;
+      }
+    });
+  });
 
   form?.addEventListener("submit", async event => {
     event.preventDefault();
@@ -331,7 +433,8 @@ export function initConnectionWidget(postFn) {
     const body = form.elements.body.value;
     try {
       await postFn(form);
-      form.elements.body.value = "";
+    form.elements.body.value = "";
+    resizeComposer();
       form.elements.client_id.value = generateUUID();
       await refresh();
     } catch (failure) {

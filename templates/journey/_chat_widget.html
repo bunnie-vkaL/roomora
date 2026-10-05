@@ -1,0 +1,25 @@
+{% load core_tags %}<aside class="connection-widget" data-connection-widget data-chat-actor-id="{{ journey_chat_actor_id }}" data-chat-workspace-response-url="{% url 'journey:action' 'workspace-response' %}" aria-label="Hộp tin nhắn">
+  <button type="button" class="connection-widget-toggle" data-chat-toggle aria-label="Tin nhắn" title="Tin nhắn" aria-expanded="false"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i></button>
+  <div class="connection-widget-panel" data-chat-panel hidden>
+    <header class="connection-widget-header"><div><small>ROOMORA · TIN NHẮN</small><strong data-chat-heading>Chọn người để trò chuyện</strong><span data-chat-state>Chọn một kết nối để bắt đầu</span></div><button type="button" class="connection-widget-close" data-chat-close aria-label="Đóng hộp chat">×</button></header>
+    <div class="connection-widget-body">
+      <nav class="connection-widget-contacts" aria-label="Các kết nối đang chat">
+        <p class="connection-widget-contacts-title">Đang kết nối</p>
+        {% for contact in journey_chat_contacts %}<button type="button" class="connection-widget-contact" aria-label="Mở chat với {{ contact.profile.name }}" title="{{ contact.profile.name }}" data-chat-person="{{ contact.profile.pk }}" data-chat-name="{{ contact.profile.name }}" data-chat-url="{% url 'journey:pair-messages' contact.profile.pk %}" data-chat-ws-url="/ws/chat/{{ contact.conversation.pk }}/"><span class="avatar" aria-hidden="true">{{ contact.profile.name|slice:':1'|upper }}</span></button>{% empty %}<p class="connection-widget-empty">Chưa có kết nối đang hoạt động.</p>{% endfor %}
+      </nav>
+      <div class="connection-widget-conversation">
+        <div class="connection-widget-log" data-chat-widget-log role="log" aria-live="polite"><p class="muted">Chọn một người ở sidebar để bắt đầu.</p></div>
+        <div class="connection-widget-feature-panels" data-chat-feature-panels>
+          {% for contact in journey_chat_contacts %}<div class="connection-widget-feature-content" data-chat-feature-content="{{ contact.profile.pk }}" hidden>
+            {% if not contact.workspace %}<form method="post" action="{% url 'journey:action' 'workspace-invite' %}" data-chat-feature-form data-chat-workspace-form hidden>{% csrf_token %}{% mutation_key as feature_key %}<input type="hidden" name="mutation_key" value="{{ feature_key }}"><input type="hidden" name="conversation" value="{{ contact.conversation.pk }}"><input type="hidden" name="title" value="Cùng tìm nơi muốn về"></form>{% endif %}
+            <section data-chat-feature-section="facts"><h3>Thông tin đã ghim</h3>{% for row in contact.facts %}<article class="connection-widget-fact"><p>{{ row.fact.body }}</p><small>{% if row.confirmed %}Hai người đã xác nhận{% else %}Còn cần xác nhận{% endif %}</small>{% if not row.mine and not row.confirmed %}<form method="post" action="{% url 'journey:action' 'fact-consent' %}" data-chat-feature-form>{% csrf_token %}{% mutation_key as consent_key %}<input type="hidden" name="mutation_key" value="{{ consent_key }}"><input type="hidden" name="conversation" value="{{ contact.conversation.pk }}"><input type="hidden" name="fact" value="{{ row.fact.pk }}"><input type="hidden" name="expected_version" value="{{ row.fact.version }}"><button class="secondary" type="submit">Xác nhận</button></form>{% endif %}</article>{% empty %}<p class="muted">Chưa có thông tin được ghim.</p>{% endfor %}</section>
+          </div>{% endfor %}
+        </div>
+        <form method="post" action="{% url 'journey:action' 'message' %}" data-chat-widget-form>{% csrf_token %}{% mutation_key as chat_mutation_key %}<input type="hidden" name="mutation_key" value="{{ chat_mutation_key }}"><input type="hidden" name="target" value=""><input type="hidden" name="client_id" value="{{ journey_chat_client_id }}">
+          <div class="connection-widget-composer"><button type="button" class="connection-widget-plus" data-chat-tools-toggle aria-label="Mở tính năng phụ" aria-expanded="false">+</button><div class="connection-widget-tools" data-chat-tools-menu hidden><button type="button" data-chat-feature="workspace">Cùng tìm nhà</button><button type="button" data-chat-feature="facts">Thông tin đã ghim</button></div><label class="sr-only" for="widget-message">Nội dung tin nhắn</label><textarea id="widget-message" name="body" rows="2" maxlength="4000" placeholder="Nhập tin nhắn…" required disabled></textarea><button type="submit" aria-label="Gửi tin nhắn" disabled><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button></div>
+        </form>
+        <p class="connection-widget-error" data-chat-widget-error role="status"></p>
+      </div>
+    </div>
+  </div>
+</aside>

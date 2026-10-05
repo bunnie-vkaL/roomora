@@ -106,6 +106,10 @@
 .connection-widget-log>.muted{text-align:center;margin-top:38%}
 .connection-widget-message{max-width:86%;width:max-content;margin:10px 0;padding:10px 13px;border-radius:14px 14px 14px 4px;background:#f0eee8;overflow-wrap:anywhere}
 .connection-widget-message.mine{margin-left:auto;border-radius:14px 14px 4px 14px;background:#e2ecdf}
+.connection-widget-message.system{margin-left:auto;margin-right:auto;max-width:92%;border-radius:14px;background:#f7f1e8;color:#6e5b50;text-align:center}
+.connection-widget-message.system strong{color:#b85e2b;font-size:.68rem;letter-spacing:.06em}
+.connection-widget-system-actions{display:flex;justify-content:center;margin-top:8px}
+.connection-widget-system-actions button{min-height:32px;padding:7px 12px;border:1px solid #d47a3c;border-radius:8px;background:#e98038;color:#fff;font-size:.76rem;font-weight:650}
 .connection-widget-message strong{display:block;font-size:.72rem;color:#53705b}
 .connection-widget-message p{margin:4px 0 6px;white-space:pre-wrap;font-size:.86rem}
 .connection-widget-message time{display:block;color:#797d79;font-size:.66rem;text-align:right}

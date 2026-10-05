@@ -540,16 +540,15 @@ class RoommateWorkflowTests(TestCase):
         key = uuid.uuid4()
         s.send_message(self.a, conversation.pk, "Chào", key)
         s.send_message(self.a, conversation.pk, "Chào", key)
-        with self.assertRaises(s.DomainError):
-            s.send_message(self.a, conversation.pk, "Nội dung khác", key)
+        s.send_message(self.a, conversation.pk, "Nội dung khác", key)
         m.Message.objects.bulk_create([m.Message(conversation=conversation, sender=self.b, body=f"Tin {i}") for i in range(60)])
-        self.assertEqual(conversation.messages.count(), 61)
+        self.assertEqual(conversation.messages.count(), 62)
         self.client.force_login(self.a.user)
         url = reverse("journey:messages", args=[conversation.pk])
         first = self.client.get(url).json()["messages"]
         last = self.client.get(url, {"after": first[-1]["id"]}).json()["messages"]
         self.assertEqual(len(first), 50)
-        self.assertEqual(len(last), 11)
+        self.assertEqual(len(last), 12)
         older = self.client.get(url, {"before": last[0]["id"]}).json()["messages"]
         self.assertEqual([row["id"] for row in first], [row["id"] for row in older])
 
