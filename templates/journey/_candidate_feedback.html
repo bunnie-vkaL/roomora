@@ -1,0 +1,16 @@
+<section class="candidate-preview-feedback" aria-label="Phản hồi và ghi chú riêng">
+  <div class="candidate-preview-feedback-grid">
+    <div>
+      <p class="eyebrow">Ghi chú riêng</p>
+      <h3>Điều muốn ghi nhớ</h3>
+      <p class="muted">Chỉ bạn đọc được ghi chú này.</p>
+      <form method="post" action="{% url 'journey:action' 'note' %}" data-draft="note-{{ card.profile.pk }}" data-autosave>
+        {% include 'journey/fields.html' with version=card.note.version|default:0 %}
+        <input type="hidden" name="target" value="{{ card.profile.pk }}">
+        <label class="sr-only" for="preview-note-{{ card.profile.pk }}">Ghi chú riêng</label>
+        <textarea id="preview-note-{{ card.profile.pk }}" name="body" rows="3" maxlength="3000" placeholder="Điều bạn muốn nhớ về hồ sơ này">{{ card.note.body|default:'' }}</textarea>
+        <button type="submit">Lưu ghi chú</button><span class="save-status" role="status"></span>
+      </form>
+    </div>
+  </div>
+</section>

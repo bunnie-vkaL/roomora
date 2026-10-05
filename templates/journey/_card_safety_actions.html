@@ -1,0 +1,16 @@
+<div class="card-safety-actions" aria-label="Tùy chọn an toàn">
+  <button type="button" class="card-report-toggle" data-report-toggle aria-expanded="false" aria-controls="report-{{ card.profile.pk }}" aria-label="Báo cáo hoặc chặn {{ card.profile.name }}" title="Báo cáo hoặc chặn hồ sơ"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></button>
+  <div id="report-{{ card.profile.pk }}" class="safety-action-modal" data-report-popover hidden role="dialog" aria-modal="true" aria-labelledby="report-title-{{ card.profile.pk }}">
+    <div class="safety-action-backdrop" data-report-close aria-hidden="true"></div>
+    <section class="safety-action-dialog">
+      <button type="button" class="safety-action-close" data-report-close aria-label="Đóng">×</button>
+      <p class="eyebrow">Tùy chọn an toàn</p>
+      <h3 id="report-title-{{ card.profile.pk }}">Báo cáo hoặc chặn hồ sơ</h3>
+      <form method="post" action="{% url 'journey:action' 'safety' %}" data-safety-action="safety" data-candidate-name="{{ card.profile.name }}">
+        {% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}">
+        <label>Lý do báo cáo<textarea name="reason" rows="4" required maxlength="1000" placeholder="Nhập lý do"></textarea></label>
+        <button type="submit">Báo cáo & chặn hồ sơ</button>
+      </form>
+    </section>
+  </div>
+</div>

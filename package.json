@@ -1,0 +1,6 @@
+{
+  "name": "roomora",
+  "private": true,
+  "type": "module",
+  "description": "Roomora - Roommate matching for Hanoi"
+}

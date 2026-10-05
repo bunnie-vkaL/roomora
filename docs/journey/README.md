@@ -33,10 +33,6 @@ node --check static/journey.js
 
 ## Hành vi và ranh giới dữ liệu
 
-Thay đổi cục bộ ngày 04/10/2026: mọi đường đọc/gửi/polling chat đều yêu cầu kết nối active hai chiều. Lời mời một chiều không mở widget hoặc tạo conversation qua gửi tin. Conversation pending từ hành vi cũ được bảo toàn nhưng không truy cập được; nếu hai bên sau đó cùng đồng ý trong cùng generation, lịch sử đó có thể xem lại. Hủy kết nối rồi match lại vẫn không mở thế hệ chat cũ. Không có migration xóa dữ liệu.
-
-Kiểm chứng hiện tại: 79 tests đạt với `config.test_settings` (SQLite tách riêng), gồm chặn pending qua pair/conversation/service, bảo toàn lịch sử, mutual send/dedupe và thu hồi sau disconnect. Chưa xác minh môi trường public hoặc PostgreSQL.
-
 - Like/Pass, lưu riêng và ghi chú riêng là các record khác nhau. Mutual Like mới mở một thế hệ conversation; hủy kết nối rồi match lại không mở lịch sử chat cũ.
 - Chat lưu tin và phát thông báo sau commit; HTTP polling mỗi bốn giây tải tin mới. Client UUID và mutation receipt chống gửi/lưu trùng khi thử lại.
 - Workspace hai người chỉ mở sau lời mời và sự đồng ý của người được mời. Rời hoặc chặn kết thúc workspace và quyền vào các dữ liệu chung. Chặn từ pilot cũng có hiệu lực trong hành trình mới.

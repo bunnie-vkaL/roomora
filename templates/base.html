@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>{% block title %}ROOMORA · More than a room{% endblock %}</title>
-  <link rel="stylesheet" href="{% static 'app.css' %}">
-  <link rel="stylesheet" href="{% static 'profile.css' %}">
-  {% if journey_enabled %}<link rel="stylesheet" href="{% static 'journey.css' %}"><script src="{% static 'chat-polling.js' %}" defer></script><script src="{% static 'journey.js' %}" defer></script>{% endif %}
-  <link rel="stylesheet" href="{% static 'flow.css' %}">
+  <link rel="stylesheet" href="{% static 'app.css' %}?v=2">
+  <link rel="stylesheet" href="{% static 'profile.css' %}?v=5">
+  {% if journey_enabled %}<link rel="stylesheet" href="{% static 'journey.css' %}"><script type="module" src="{% static 'journey.js' %}?v=13"></script>{% endif %}
+  <link rel="stylesheet" href="{% static 'flow.css' %}?v=4">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   {% block extra_head %}{% endblock %}
-  <link rel="stylesheet" href="{% static 'design.css' %}">
+  <link rel="stylesheet" href="{% static 'design.css' %}?v=40">
 </head>
 <body class="{% block body_class %}{% endblock %}" data-account="{{ user.pk|default:'' }}">
   <header class="site-header">
@@ -17,31 +18,44 @@
       <a class="brand" href="{% url 'home' %}">ROOMORA</a>
       <nav class="nav-links">
         {% if user.is_authenticated %}
-          <a href="{% url 'about' %}">Giới thiệu</a>
           <a href="{% url 'dashboard' %}">Gợi ý cho bạn</a>
-          {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a><a href="{% url 'journey:rooms' %}">Tìm trọ</a>{% endif %}
-          <a href="{% url 'profile_edit' %}">Hồ sơ</a>
+          {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a>{% endif %}
+          {% if journey_enabled %}<a href="{% url 'journey:rooms' %}">Tìm trọ</a>{% endif %}
           {% if user.is_staff %}
             <a href="{% url 'pilot_results' %}">Pilot</a>
           {% endif %}
         {% else %}
-          <a href="{% url 'about' %}">Giới thiệu</a>
           <a href="{% url 'register' %}">Tạo hồ sơ</a>
         {% endif %}
       </nav>
       <div class="nav-actions">
         {% if user.is_authenticated %}
-          <span class="avatar" id="header-avatar" title="{{ user.profile.name|default:user.email }}">
-            {% if user.profile.avatar %}
-              <img src="{{ user.profile.avatar.url }}" alt="{{ user.profile.name|default:user.email }}">
-            {% else %}
-              <span class="avatar-letter">{{ user.profile.name|default:user.email|slice:':1'|upper }}</span>
-            {% endif %}
-          </span>
-          <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button class="link-button">Đăng xuất</button>
-          </form>
+          <details class="account-menu">
+            <summary aria-label="Mở menu tài khoản">
+              <span class="account-greeting">Chào {{ user.profile.name|default:user.email }}</span>
+              <span class="account-avatar-wrap">
+                <span class="avatar" id="header-avatar" title="{{ user.profile.name|default:user.email }}">
+                  {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.profile.name|default:user.email }}">
+                  {% else %}
+                    <span class="avatar-letter">{{ user.profile.name|default:user.email|slice:':1'|upper }}</span>
+                  {% endif %}
+                </span>
+                {% if journey_unread %}<span class="account-notification-badge" aria-label="{{ journey_unread }} thông báo chưa đọc">{% if journey_unread > 99 %}99+{% else %}{{ journey_unread }}{% endif %}</span>{% endif %}
+              </span>
+            </summary>
+            <div class="account-menu__panel">
+              <a class="account-menu__notifications-link" href="{% url 'journey:notifications' %}"><i class="fa-solid fa-bell" aria-hidden="true"></i><span>Thông báo</span>{% if journey_unread %}<b>{{ journey_unread }}</b>{% endif %}</a>
+              <div class="account-menu__recent-notifications" aria-label="Thông báo trong 30 ngày gần nhất">
+                {% for notification in journey_recent_notifications %}<a class="account-menu__recent-item{% if not notification.read %} is-unread{% endif %}" href="{{ notification.event.path }}"><span>{{ notification.event.title }}</span><small>{{ notification.created_at|date:'d/m H:i' }}</small></a>{% empty %}<p class="account-menu__empty">Chưa có thông báo trong 30 ngày qua.</p>{% endfor %}
+              </div>
+              <a href="{% url 'profile_edit' %}"><i class="fa-solid fa-user-pen" aria-hidden="true"></i><span>Hồ sơ</span></a>
+              <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Đăng xuất</span></button>
+              </form>
+            </div>
+          </details>
         {% else %}
           <a href="{% url 'login' %}">Đăng nhập</a>
           <a class="button gold" href="{% url 'register' %}">Bắt đầu</a>
@@ -49,20 +63,47 @@
       </div>
     </div>
   </header>
+  <aside class="notification-widget" aria-label="Thông báo" aria-live="polite">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="notification message {{ message.tags }}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">
+          <span>{{ message }}</span>
+          <button type="button" class="notification-close" aria-label="Đóng thông báo">×</button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </aside>
   <main class="page-shell">
-    {% for message in messages %}
-      <div class="message {{ message.tags }}">{{ message }}</div>
-    {% endfor %}
     {% block content %}{% endblock %}
   </main>
   {% if user.is_authenticated %}
     <nav class="mobile-nav">
-      {% if not journey_enabled %}<a href="{% url 'about' %}">Giới thiệu</a>{% endif %}
       <a href="{% url 'dashboard' %}">Gợi ý</a>
       {% if journey_enabled %}<a href="{% url 'journey:hub' %}">Kết nối{% if journey_unread %} ({{ journey_unread }}){% endif %}</a>{% endif %}
       {% if journey_enabled %}<a href="{% url 'journey:rooms' %}">Tìm trọ</a>{% endif %}
       <a href="{% url 'profile_edit' %}">Hồ sơ</a>
     </nav>
   {% endif %}
+  <script>
+    document.addEventListener('click', function (event) {
+      document.querySelectorAll('.account-menu[open]').forEach(function (menu) {
+        if (!menu.contains(event.target)) menu.open = false;
+      });
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        document.querySelectorAll('.account-menu[open]').forEach(function (menu) { menu.open = false; });
+      }
+    });
+    document.querySelectorAll('.notification').forEach(function (notification) {
+      var close = notification.querySelector('.notification-close');
+      if (close) close.addEventListener('click', function () { notification.remove(); });
+      window.setTimeout(function () {
+        notification.classList.add('notification--leaving');
+        window.setTimeout(function () { notification.remove(); }, 220);
+      }, 5200);
+    });
+  </script>
+  <script src="{% static 'chat-polling.js' %}" defer></script>
 </body>
 </html>

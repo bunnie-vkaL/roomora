@@ -1,24 +1,8 @@
 {% extends 'journey/base.html' %}
 {% block journey_content %}
-<section class="journey-heading rentals-heading">
-  <div><p class="eyebrow">Tìm trọ</p><h1>Chọn nơi ở.<br>Rõ từng khoản.</h1><p>Lưu căn từ tin đăng, so chi phí và cùng chọn nhà.</p></div>
-  <a class="button" href="{% url 'journey:room-new' %}">+ Lưu một căn</a>
+<section class="journey-heading rentals-heading"><div><p class="eyebrow">Tìm trọ</p><h1>Chọn nơi ở.<br>Rõ từng khoản.</h1><p>Lưu căn từ tin đăng, so chi phí và cùng chọn nhà.</p></div><a class="button" href="{% url 'journey:room-new' %}">+ Lưu một căn</a></section>
+<section class="section rental-private" aria-labelledby="private-rooms-heading"><div class="rental-section-heading"><div><h2 id="private-rooms-heading">Căn lưu riêng</h2><p>Chỉ bạn thấy. Chia sẻ vào nhóm khi đã sẵn sàng.</p></div><span class="hub-count">{{ rooms|length }}</span></div>
+  <form method="get" action="{% url 'journey:room-compare' %}"><div class="grid three rental-grid">{% for room in rooms %}{% include 'journey/room_card.html' with private_card=True %}{% empty %}<div class="empty rental-empty"><h3>Gặp căn ưng ý? Lưu lại ở đây.</h3><p>Thêm link tin đăng, khu vực và các khoản đã biết. Bổ sung chi tiết sau.</p><a class="button secondary" href="{% url 'journey:room-new' %}">Lưu căn đầu tiên</a></div>{% endfor %}</div>{% if rooms|length > 1 %}<div class="rental-compare"><button class="secondary">So sánh căn đã chọn</button><span>Chọn 2–3 căn để đặt cạnh nhau.</span></div>{% endif %}</form>
 </section>
-
-<section class="section rental-private" aria-labelledby="private-rooms-heading">
-  <div class="rental-section-heading"><div><h2 id="private-rooms-heading">Căn lưu riêng</h2><p>Chỉ bạn thấy. Chia sẻ vào nhóm khi đã sẵn sàng.</p></div><span class="hub-count">{{ rooms|length }}</span></div>
-  <form method="get" action="{% url 'journey:room-compare' %}">
-    <div class="grid three rental-grid">{% for room in rooms %}{% include 'journey/room_card.html' with private_card=True %}{% empty %}
-      <div class="empty rental-empty"><h3>Gặp căn ưng ý? Lưu lại ở đây.</h3><p>Thêm link tin đăng, khu vực và các khoản đã biết. Bổ sung chi tiết sau.</p><a class="button secondary" href="{% url 'journey:room-new' %}">Lưu căn đầu tiên</a></div>
-    {% endfor %}</div>
-    {% if rooms|length > 1 %}<div class="rental-compare"><button class="secondary">So sánh căn đã chọn</button><span>Chọn 2–3 căn để đặt cạnh nhau.</span></div>{% endif %}
-  </form>
-</section>
-
-<section class="section rental-shared" aria-labelledby="shared-rooms-heading">
-  <div class="rental-section-heading"><div><h2 id="shared-rooms-heading">Cùng tìm nhà</h2><p>Căn chung, ý kiến và lịch xem của nhóm.</p></div></div>
-  <div class="grid two">{% for workspace in workspaces %}
-    <article class="rental-workspace"><div><span class="rental-state">Đang cùng tìm</span><h3>{{ workspace.title }}</h3><p>{{ workspace.room_count }} căn đang cân nhắc</p></div><a class="button secondary" href="{% url 'journey:workspace' workspace.pk %}">Mở bảng nhà</a></article>
-  {% empty %}<div class="empty rental-empty"><p>Sau khi kết nối và trò chuyện, mời nhau cùng tìm nhà để mở bảng chung.</p><a class="detail-link" href="{% url 'journey:hub' %}">Xem kết nối của bạn →</a></div>{% endfor %}</div>
-</section>
+<section class="section rental-shared" aria-labelledby="shared-rooms-heading"><div class="rental-section-heading"><div><h2 id="shared-rooms-heading">Cùng tìm nhà</h2><p>Căn chung, ý kiến và lịch xem của nhóm.</p></div></div><div class="grid two">{% for workspace in workspaces %}<article class="rental-workspace"><div><span class="rental-state">Đang cùng tìm</span><h3>{{ workspace.title }}</h3><p>{{ workspace.room_count }} căn đang cân nhắc</p></div><a class="button secondary" href="{% url 'journey:workspace' workspace.pk %}">Mở bảng nhà</a></article>{% empty %}<div class="empty rental-empty"><p>Sau khi kết nối và trò chuyện, mời nhau cùng tìm nhà để mở bảng chung.</p><a class="detail-link" href="{% url 'journey:hub' %}">Xem kết nối của bạn →</a></div>{% endfor %}</div></section>
 {% endblock %}

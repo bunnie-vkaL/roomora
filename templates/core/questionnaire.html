@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Cách sống của bạn · Roomora{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'survey.css' %}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'survey.css' %}?v=3">{% endblock %}
 {% block body_class %}survey-screen{% endblock %}
 {% block content %}
 <section class="survey-layout" aria-labelledby="survey-title">
@@ -32,10 +32,11 @@
       </fieldset>
       <div class="survey-actions">
         {% if step > 1 %}<a class="survey-back" href="?step={{ previous_step }}">← Quay lại</a>{% else %}<a class="survey-back" href="{% url 'profile_edit' %}">← Hồ sơ</a>{% endif %}
-        <button type="submit" name="action" value="next">{% if step == total_steps %}Xuất bản hồ sơ{% else %}Tiếp tục →{% endif %}</button>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="survey-save" type="submit" name="action" value="save">Cập nhật</button>
+          <button type="submit" name="action" value="next">{% if step == total_steps %}Xuất bản hồ sơ{% else %}Cập nhật & Tiếp tục →{% endif %}</button>
+        </div>
       </div>
-      <p class="survey-save-note">Lưu câu trả lời khi tiếp tục. Bạn có thể hoàn thành sau.</p>
-      {% if step == total_steps %}<p class="survey-publish-note">Xuất bản để hồ sơ xuất hiện trong gợi ý. Bạn cần trả lời đủ 16 câu.</p>{% endif %}
     </form>
   </div>
 </section>

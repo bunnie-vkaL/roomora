@@ -1,4 +1,4 @@
-{% load journey_tags %}
+{% load core_tags %}
 <article class="room-card rental-card">
   <a class="rental-cover" href="{% url 'journey:room' room.pk %}" aria-label="Xem {{ room.title }}">{% with image=room.images.first %}{% if image %}<img src="{% url 'journey:image' image.pk %}" alt="{{ image.caption|default:room.title }}" loading="lazy">{% else %}<div class="home-placeholder" aria-hidden="true">⌂</div>{% endif %}{% endwith %}</a>
   <div class="rental-card-copy"><p class="rental-area">{{ room.area|default:'Chưa nhập khu vực' }}</p><h3><a href="{% url 'journey:room' room.pk %}">{{ room.title }}</a></h3>

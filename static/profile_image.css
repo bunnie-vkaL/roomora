@@ -48,9 +48,13 @@
   font-weight: 600;
 }
 .profile-avatar-controls input[type="file"] {
-  max-width: 360px;
-  margin: 2px 0 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
+.profile-avatar-controls .profile-avatar-label{width:max-content;margin:0;font-weight:650}
 .profile-avatar-controls p {
   margin: 4px 0 0;
   color: var(--muted);

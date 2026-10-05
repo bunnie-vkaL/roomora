@@ -1,15 +1,16 @@
 <article class="person-list-card" data-person-card>
-  <a class="list-portrait" href="{% url 'journey:candidate' card.profile.pk %}" aria-label="Xem hồ sơ {{ card.profile.name }}">
+  <form class="list-card-save" method="post" action="{% url 'journey:action' 'save-candidate' %}" data-list-save data-candidate-name="{{ card.profile.name }}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><input type="hidden" name="saved" value="{% if card.saved %}0{% else %}1{% endif %}"><button type="submit" aria-label="{% if card.saved %}Bỏ lưu {{ card.profile.name }}{% else %}Lưu {{ card.profile.name }} để xem sau{% endif %}" aria-pressed="{% if card.saved %}true{% else %}false{% endif %}" title="{% if card.saved %}Bỏ lưu{% else %}Lưu xem sau{% endif %}"><i class="{% if card.saved %}fa-solid{% else %}fa-regular{% endif %} fa-bookmark" aria-hidden="true"></i></button></form>
+  {% include 'journey/_card_safety_actions.html' %}
+  <div class="list-portrait" aria-label="Hồ sơ {{ card.profile.name }}">
     {% if card.profile.avatar and not card.profile.is_synthetic %}<img src="{{ card.profile.avatar.url }}" alt="{{ card.profile.name }}" loading="lazy">{% else %}<span aria-hidden="true">{{ card.profile.name|slice:':1'|upper }}</span>{% endif %}
-  </a>
+  </div>
   <div class="list-person-copy">
-    <div class="list-person-title"><h2><a href="{% url 'journey:candidate' card.profile.pk %}">{{ card.profile.name }}</a><span> · {{ card.profile.age }}</span></h2><span class="list-score">{{ card.score }}% <small>ước tính</small></span></div>
+    <div class="list-person-title"><h2>{{ card.profile.name }}<span> · {{ card.profile.age }}</span></h2><span class="list-score">{{ card.score }}% <small>ước tính</small></span></div>
     <p class="list-budget">{{ card.profile.rent_display }}</p>
     <p class="list-area">{% if card.profile.areas|length > 5 %}Linh hoạt nhiều khu vực Hà Nội{% else %}{{ card.profile.areas|join:', ' }}{% endif %}</p>
     <p class="list-reason">{{ card.similarities.0|default:'Trao đổi thêm để hiểu nhịp sống của nhau.' }}</p>
     <div class="list-actions">
-      <a href="{% url 'journey:candidate' card.profile.pk %}" class="button secondary">Xem hồ sơ</a>
-      <form method="post" action="{% url 'journey:action' 'save-candidate' %}" data-list-save data-candidate-name="{{ card.profile.name }}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><input type="hidden" name="saved" value="{% if card.saved %}0{% else %}1{% endif %}"><button class="secondary" aria-label="{% if card.saved %}Bỏ lưu {{ card.profile.name }}{% else %}Lưu {{ card.profile.name }} để xem sau{% endif %}">{% if card.saved %}Bỏ lưu{% else %}Lưu{% endif %}</button></form>
+      <div class="detail-preview-wrap list-detail-preview"><button type="button" class="detail-link detail-preview-trigger" data-profile-preview="list-preview-{{ card.profile.pk }}" aria-haspopup="dialog" aria-controls="list-preview-{{ card.profile.pk }}">Xem nhu cầu & nhịp sống →</button>{% include 'journey/_profile_preview.html' with preview_prefix='list-preview' %}</div>
       <form method="post" action="{% url 'journey:action' 'like' %}">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ card.profile.pk }}"><button aria-label="Muốn kết nối với {{ card.profile.name }}">Muốn kết nối</button></form>
     </div>
   </div>
