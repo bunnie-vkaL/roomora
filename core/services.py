@@ -441,6 +441,17 @@ def invite_workspace(actor, conversation_id, title):
 
 
 @transaction.atomic
+def rename_workspace(actor, workspace_id, title):
+    workspace = workspace_for(actor, workspace_id, lock=True)
+    title = title.strip()[:120]
+    if not title:
+        raise DomainError("Tên không gian không được để trống.")
+    workspace.title = title
+    workspace.save(update_fields=["title"])
+    return workspace
+
+
+@transaction.atomic
 def respond_workspace(actor, workspace_id, accept):
     workspace = SearchWorkspace.objects.filter(pk=workspace_id, status="pending", invitee=actor).first()
     if not workspace:

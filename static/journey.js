@@ -58,6 +58,7 @@ function initAll() {
   initSavedView();
   initSavedCompare();
   initSafetyActions(post);
+  initWorkspaceTitle(post);
   initProfilePreviews();
   initAreaTagNavigation();
   document.querySelectorAll("[data-go-back]").forEach(button => {
@@ -71,6 +72,45 @@ function initAll() {
   const drafts = initDrafts(post);
   initChat(post, drafts);
   initConnectionWidget(post);
+}
+
+function initWorkspaceTitle(postFn) {
+  const display = document.querySelector("[data-workspace-title-display]");
+  const form = document.querySelector("[data-workspace-title-form]");
+  const input = form?.elements.title;
+  if (!display || !form || !input) return;
+  let saved = display.textContent.trim();
+
+  const save = async () => {
+    const title = display.textContent.replace(/\s+/g, " ").trim().slice(0, 120);
+    if (!title) {
+      display.textContent = saved;
+      return;
+    }
+    if (title === saved) return;
+    input.value = title;
+    try {
+      await postFn(form);
+      saved = title;
+      display.textContent = title;
+      announce("Đã lưu tên không gian.");
+    } catch (error) {
+      display.textContent = saved;
+      announce(error.message);
+    }
+  };
+
+  display.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      display.blur();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      display.textContent = saved;
+      display.blur();
+    }
+  });
+  display.addEventListener("blur", save);
 }
 
 function initSafetyActions(postFn) {

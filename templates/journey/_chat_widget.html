@@ -5,7 +5,7 @@
     <div class="connection-widget-body">
       <nav class="connection-widget-contacts" aria-label="Các kết nối đang chat">
         <p class="connection-widget-contacts-title">Đang kết nối</p>
-        {% for contact in journey_chat_contacts %}<button type="button" class="connection-widget-contact" aria-label="Mở chat với {{ contact.profile.name }}" title="{{ contact.profile.name }}" data-chat-person="{{ contact.profile.pk }}" data-chat-name="{{ contact.profile.name }}" data-chat-url="{% url 'journey:pair-messages' contact.profile.pk %}" data-chat-ws-url="/ws/chat/{{ contact.conversation.pk }}/"><span class="avatar" aria-hidden="true">{{ contact.profile.name|slice:':1'|upper }}</span></button>{% empty %}<p class="connection-widget-empty">Chưa có kết nối đang hoạt động.</p>{% endfor %}
+        {% for contact in journey_chat_contacts %}<button type="button" class="connection-widget-contact" aria-label="Mở chat với {{ contact.profile.name }}" title="{{ contact.profile.name }}" data-chat-person="{{ contact.profile.pk }}" data-chat-name="{{ contact.profile.name }}" data-chat-url="{% url 'journey:pair-messages' contact.profile.pk %}" data-chat-ws-url="/ws/chat/{{ contact.conversation.pk }}/"{% if contact.workspace and contact.workspace.status == 'active' %} data-chat-workspace-url="{% url 'journey:workspace' contact.workspace.pk %}"{% endif %}><span class="avatar" aria-hidden="true">{{ contact.profile.name|slice:':1'|upper }}</span></button>{% empty %}<p class="connection-widget-empty">Chưa có kết nối đang hoạt động.</p>{% endfor %}
       </nav>
       <div class="connection-widget-conversation">
         <div class="connection-widget-log" data-chat-widget-log role="log" aria-live="polite"><p class="muted">Chọn một người ở sidebar để bắt đầu.</p></div>

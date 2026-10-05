@@ -46,6 +46,7 @@ from core.services import (
     members_for_cost,
     propose_room,
     respond_workspace,
+    rename_workspace,
     room_for,
     run_mutation,
     save_agreement,
@@ -188,6 +189,9 @@ def perform(request, action_name):
                 fact.save()
             else:
                 FactConsent.objects.get_or_create(fact=fact, member=actor, version=fact.version)
+    elif action_name == "workspace-rename":
+        ws = rename_workspace(actor, number(data.get("workspace")), text(data, "title", 120, True))
+        destination = reverse("journey:workspace", args=[ws.pk])
     elif action_name == "workspace-response":
         ws = respond_workspace(actor, number(data.get("workspace")), yes_no(data, "accepted"))
         if ws.status == "active":

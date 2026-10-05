@@ -420,6 +420,113 @@ label {
   letter-spacing: .06em;
 }
 
+[data-workspace-title-display] {
+  cursor: text;
+  border-radius: 8px;
+  outline: 0;
+}
+[data-workspace-title-display]:focus {
+  background: #fffdf8;
+  box-shadow: 0 0 0 3px #e9803855;
+}
+form[action*="task-template"] > button,
+form[action*="workspace-leave"] > button {
+  color: #fff !important;
+}
+
+form[data-draft^="room-"] button {
+  color: #fff !important;
+}
+
+form[data-draft^="room-"] .cost-row {
+  grid-template-columns: 1.1fr 1.1fr 1.1fr .9fr 1.25fr auto;
+  align-items: start;
+  gap: 14px;
+}
+
+form[data-draft^="room-"] .cost-row > p {
+  min-width: 0;
+  margin: 0 !important;
+  display: grid;
+  grid-template-rows: 28px 46px;
+  align-items: start;
+}
+
+form[data-draft^="room-"] .cost-row > p > label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  min-height: 0;
+  line-height: 1.25;
+}
+
+form[data-draft^="room-"] .cost-row input:not([type="checkbox"]),
+form[data-draft^="room-"] .cost-row select,
+form[data-draft^="room-"] .cost-row textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+form[data-draft^="room-"] .cost-row select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 42px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--clay) 50%),
+    linear-gradient(135deg, var(--clay) 50%, transparent 50%);
+  background-position: calc(100% - 19px) 50%, calc(100% - 13px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+form[data-draft^="room-"] .cost-row > p:has(input[type="checkbox"]) {
+  display: block !important;
+  padding-top: 28px;
+}
+
+form[data-draft^="room-"] .cost-row > p:has(input[type="checkbox"]) label {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 46px;
+  color: var(--muted);
+  font-size: 0;
+  cursor: pointer;
+}
+
+form[data-draft^="room-"] .cost-row > p:has(input[type="checkbox"]) label::before {
+  content: "\f2ed";
+  font-family: "Font Awesome 6 Free";
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+form[data-draft^="room-"] .cost-row > p:has(input[type="checkbox"]) input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+form[data-draft^="room-"] .cost-row > p:has(input[type="checkbox"]:checked) label {
+  color: var(--clay);
+}
+
+form[data-draft^="room-"] .cost-row > p:has(input[type="checkbox"]:focus-visible) label {
+  outline: 3px solid rgba(217, 119, 54, .25);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+form[data-draft^="room-"] .cost-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
 .chat-message strong {
   font-size: .8rem;
   font-weight: 650;

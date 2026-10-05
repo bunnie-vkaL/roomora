@@ -219,6 +219,7 @@ export function initConnectionWidget(postFn) {
   const contacts = widget.querySelectorAll("[data-chat-person]");
   const toolsToggle = widget.querySelector("[data-chat-tools-toggle]");
   const toolsMenu = widget.querySelector("[data-chat-tools-menu]");
+  const workspaceFeatureButton = widget.querySelector('[data-chat-feature="workspace"]');
   const featureContents = widget.querySelectorAll("[data-chat-feature-content]");
   const composerInput = form?.elements.body;
 
@@ -248,6 +249,10 @@ export function initConnectionWidget(postFn) {
     const content = [...featureContents].find(item => item.dataset.chatFeatureContent === selected.id);
     if (!content) return;
     if (feature === "workspace") {
+      if (selected.workspaceUrl) {
+        window.location.assign(selected.workspaceUrl);
+        return;
+      }
       const workspaceForm = content.querySelector("[data-chat-workspace-form]");
       toolsMenu.hidden = true;
       toolsToggle.setAttribute("aria-expanded", "false");
@@ -359,10 +364,12 @@ export function initConnectionWidget(postFn) {
     closeRealtime?.();
     selected = { id: button.dataset.chatPerson, url: button.dataset.chatUrl };
     selected.wsUrl = button.dataset.chatWsUrl;
+    selected.workspaceUrl = button.dataset.chatWorkspaceUrl || "";
     lastId = 0;
     log.replaceChildren();
     if (error) error.textContent = "";
     heading.textContent = button.dataset.chatName;
+    if (workspaceFeatureButton) workspaceFeatureButton.textContent = selected.workspaceUrl ? "Không gian chung" : "Cùng tìm nhà";
     contacts.forEach(contact => contact.classList.toggle("is-active", contact === button));
     featureContents.forEach(content => { content.hidden = true; });
     toolsMenu.hidden = true;
