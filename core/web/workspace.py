@@ -39,18 +39,34 @@ def choice_context(workspace):
 def room_cost_overview(room_option, member_count=1):
     costs = list(room_option.costs.values("label", "period", "state", "amount"))
     if not costs:
-        return {"monthly_total": 0, "deposit_total": 0,
-                "per_person_monthly": 0, "per_person_upfront": 0, "has_costs": False}
-    monthly_total = sum(c["amount"] or 0 for c in costs if c["period"] == "monthly" and c["state"] != "unknown")
-    deposit_total = sum(c["amount"] or 0 for c in costs if c["period"] == "deposit" and c["state"] != "unknown")
-    initial_total = sum(c["amount"] or 0 for c in costs if c["period"] == "initial" and c["state"] != "unknown")
+        return {"monthly": 0, "upfront": 0, "monthly_total": 0, "deposit_total": 0,
+                "per_person_monthly": 0, "per_person_upfront": 0, "has_costs": False,
+                "missing_count": 0, "estimated": False}
+    monthly_costs = [c for c in costs if c["period"] == "monthly"]
+    deposit_costs = [c for c in costs if c["period"] == "deposit"]
+    initial_costs = [c for c in costs if c["period"] == "initial"]
+    
+    monthly_total = sum(c["amount"] or 0 for c in monthly_costs if c["state"] != "unknown")
+    deposit_total = sum(c["amount"] or 0 for c in deposit_costs if c["state"] != "unknown")
+    initial_total = sum(c["amount"] or 0 for c in initial_costs if c["state"] != "unknown")
+    
+    upfront_total = deposit_total + initial_total
+    missing_count = sum(1 for c in costs if c["state"] == "unknown")
+    estimated = any(c["state"] == "estimated" for c in costs)
+    
     n = max(member_count, 1)
     return {
+        "monthly": monthly_total,
+        "upfront": upfront_total,
         "monthly_total": monthly_total,
         "deposit_total": deposit_total,
         "per_person_monthly": monthly_total // n,
-        "per_person_upfront": (deposit_total + initial_total) // n,
+        "per_person_upfront": upfront_total // n,
         "has_costs": bool(costs),
+        "monthly_partial": any(c["state"] == "unknown" for c in monthly_costs) and any(c["state"] != "unknown" for c in monthly_costs),
+        "upfront_partial": any(c["state"] == "unknown" for c in deposit_costs + initial_costs) and any(c["state"] != "unknown" for c in deposit_costs + initial_costs),
+        "missing_count": missing_count,
+        "estimated": estimated,
     }
 
 
