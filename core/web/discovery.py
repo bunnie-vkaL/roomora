@@ -169,7 +169,10 @@ def compare_candidates(request):
         if not SavedCandidate.objects.filter(owner=request.actor, candidate=profile).exists():
             raise DomainError("Chỉ so sánh người bạn đã lưu.", 403)
         cards.append(candidate_card(request.actor, profile))
-    return render(request, "journey/compare.html", {"cards": cards, "actor": request.actor})
+    context = {"cards": cards, "actor": request.actor}
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return render(request, "journey/_compare_results.html", context)
+    return render(request, "journey/compare.html", context)
 
 
 @page

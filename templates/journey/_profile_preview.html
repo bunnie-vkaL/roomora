@@ -1,0 +1,26 @@
+<div id="{{ preview_prefix }}-{{ card.profile.pk }}" class="profile-preview-modal" hidden role="dialog" aria-modal="true" aria-labelledby="{{ preview_prefix }}-{{ card.profile.pk }}-title">
+  <div class="profile-preview-backdrop" data-profile-preview-close aria-hidden="true"></div>
+  <section class="profile-preview-dialog">
+    <button type="button" class="profile-preview-close" data-profile-preview-close aria-label="Đóng xem trước">×</button>
+    <div class="candidate-preview-page">
+      <div class="candidate-preview-overview">
+        <div class="candidate-preview-identity">
+          <header class="candidate-preview-heading">
+            <div>
+              <p class="eyebrow">Hồ sơ người hợp nhịp</p>
+              <div class="candidate-preview-name-row"><h2 id="{{ preview_prefix }}-{{ card.profile.pk }}-title">{{ card.profile.name }}</h2><span class="candidate-preview-score">{{ card.score }}% <small>ước tính</small></span></div>
+              <p>{% if card.profile.areas|length > 5 %}Linh hoạt nhiều khu vực Hà Nội{% else %}{{ card.profile.areas|join:', ' }}{% endif %} · {{ card.profile.rent_display }}</p>
+              <p>Chuyển vào: {% if card.living.move_in_from %}{{ card.living.move_in_from|date:'d/m/Y' }}{% if card.living.move_in_until %} – {{ card.living.move_in_until|date:'d/m/Y' }}{% endif %}{% else %}Cần trao đổi{% endif %}</p>
+            </div>
+          </header>
+          <div class="candidate-preview-reasons">
+            <div><strong>Điểm hợp</strong><ul>{% for reason in card.similarities|slice:':2' %}<li>{{ reason }}</li>{% empty %}<li>Trao đổi thêm để hiểu nhau.</li>{% endfor %}</ul></div>
+            <div><strong>Cần hỏi thêm</strong><ul>{% for reason in card.differences|slice:':2' %}<li>{{ reason }}</li>{% empty %}<li>Ngày chuyển vào và việc cùng tìm nhà.</li>{% endfor %}</ul></div>
+          </div>
+        </div>
+        <div>{% include 'journey/routine.html' with person=card.profile living=card.living %}</div>
+      </div>
+      {% include 'journey/lifestyle_details.html' %}
+    </div>
+  </section>
+</div>

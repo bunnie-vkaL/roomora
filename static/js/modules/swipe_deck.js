@@ -60,6 +60,7 @@ export function initSwipeDeck(postFn) {
         saved.value = saved.value === "1" ? "0" : "1";
         const button = form.querySelector("button");
         const isSaved = saved.value === "0";
+        button.classList.toggle("is-saved", isSaved);
         button.setAttribute("aria-label", isSaved ? `Bỏ lưu ${form.dataset.candidateName}` : `Lưu ${form.dataset.candidateName} để xem sau`);
         button.setAttribute("aria-pressed", String(isSaved));
         button.title = isSaved ? "Bỏ lưu" : "Lưu xem sau";
