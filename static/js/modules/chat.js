@@ -3,6 +3,7 @@
  * and client UUID message deduplication.
  */
 import { announce, generateUUID } from "../api.js?v=5";
+import { connectChatRealtime } from "./realtime.js";
 
 export function initChat(postFn, draftsMap) {
   const chatLog = document.querySelector("[data-chat-log]");
@@ -111,6 +112,12 @@ export function initChat(postFn, draftsMap) {
   }
 
   const interval = setInterval(poll, 4000);
+  const chatWsUrl = chatLog.dataset.wsUrl || (send?.elements.conversation ? `/ws/chat/${send.elements.conversation.value}/` : "");
+  connectChatRealtime(chatWsUrl, message => {
+    const atBottom = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 70;
+    renderMessage(message);
+    if (atBottom) chatLog.scrollTop = chatLog.scrollHeight;
+  });
 
   const sourceMessage = location.hash.startsWith("#message-")
     ? document.getElementById(location.hash.slice(1))
@@ -201,7 +208,7 @@ export function initConnectionWidget(postFn) {
   const log = widget.querySelector("[data-chat-widget-log]");
   const form = widget.querySelector("[data-chat-widget-form]");
   const error = widget.querySelector("[data-chat-widget-error]");
-  let selected = null, lastId = 0, loadingVersion = null, sending = false, selectionVersion = 0;
+  let selected = null, lastId = 0, loadingVersion = null, sending = false, selectionVersion = 0, closeRealtime = null;
 
   const showPanel = () => {
     panel.hidden = false;
@@ -284,7 +291,9 @@ export function initConnectionWidget(postFn) {
   const openChat = button => {
     if (sending) return;
     selectionVersion += 1;
+    closeRealtime?.();
     selected = { id: button.dataset.chatPerson, url: button.dataset.chatUrl };
+    selected.wsUrl = button.dataset.chatWsUrl;
     lastId = 0;
     log.replaceChildren();
     if (error) error.textContent = "";
@@ -296,6 +305,12 @@ export function initConnectionWidget(postFn) {
     form.querySelector("button[type=submit]").disabled = false;
     form.elements.client_id.value = generateUUID();
     showPanel();
+    closeRealtime = connectChatRealtime(selected.wsUrl, message => {
+      const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+      render(message);
+      lastId = Math.max(lastId, Number(message.id));
+      if (atBottom) log.scrollTop = log.scrollHeight;
+    });
     refresh();
     form.elements.body.focus();
   };

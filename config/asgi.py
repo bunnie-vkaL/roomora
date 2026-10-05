@@ -7,6 +7,8 @@ Routes requests to:
 import os
 import django
 from django.core.asgi import get_asgi_application
+from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
@@ -15,10 +17,16 @@ django.setup()
 django_asgi_app = get_asgi_application()
 
 from api.main import api_app
+from core.routing import websocket_urlpatterns
 
-application = Starlette(
+http_application = Starlette(
     routes=[
         Mount("/api", app=api_app),
         Mount("/", app=django_asgi_app),
     ]
 )
+
+application = ProtocolTypeRouter({
+    "http": http_application,
+    "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
+})

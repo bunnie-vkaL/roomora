@@ -438,7 +438,7 @@ class RoommateWorkflowTests(TestCase):
             self.assertEqual(hub.context["outgoing"], [])
             self.assertEqual(hub.context["incoming"], [])
             self.assertEqual([row["other"].pk for row in hub.context["conversations"]], [other.pk])
-            self.assertContains(hub, reverse("journey:chat", args=[conversation.pk]))
+            self.assertContains(hub, f'data-chat-ws-url="/ws/chat/{conversation.pk}/"')
             self.assertContains(hub, f'data-chat-person="{other.pk}"')
 
         response = self.post(self.a, "message", conversation=conversation.pk, body="Mình muốn hỏi về giờ giấc sinh hoạt.", client_id=uuid.uuid4())

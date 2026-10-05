@@ -4,6 +4,8 @@ import json
 import logging
 import uuid
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
@@ -83,11 +85,35 @@ def deliver_safely(event_id):
         logger.exception("Notification event %s retained for retry", event_id)
 
 
+def _publish(group, event):
+    """Best-effort realtime delivery; the database/outbox remains canonical."""
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer is not None:
+            async_to_sync(channel_layer.group_send)(group, event)
+    except Exception:
+        logger.exception("Realtime publish failed for group %s", group)
+
+
+def publish_notification(profile_id, notification):
+    _publish(f"profile_{profile_id}", {
+        "type": "notification.created",
+        "payload": {
+            "type": "notification",
+            "id": notification.pk,
+            "title": notification.event.title,
+            "path": notification.event.path,
+            "created_at": notification.created_at.isoformat(),
+        },
+    })
+
+
 @transaction.atomic
 def deliver_event(event_id):
     event = OutboxEvent.objects.select_for_update().get(pk=event_id)
     if event.delivered:
         return
+    created_notifications = []
     for profile in Profile.objects.filter(pk__in=event.recipients):
         living = getattr(profile, "living", None)
         if living and not living.notifications_enabled:
@@ -97,9 +123,15 @@ def deliver_event(event_id):
                 workspace_for(profile, event.workspace_id)
             except DomainError:
                 continue
-        Notification.objects.get_or_create(event=event, profile=profile)
+        notification, created = Notification.objects.get_or_create(event=event, profile=profile)
+        if created:
+            created_notifications.append(notification)
     event.delivered = True
     event.save(update_fields=["delivered"])
+    for notification in created_notifications:
+        transaction.on_commit(
+            lambda notification=notification: publish_notification(notification.profile_id, notification)
+        )
 
 
 @transaction.atomic
@@ -320,6 +352,10 @@ def send_message(actor, conversation_id, body, client_id, allow_pending=False):
     if created:
         path = reverse("journey:chat", args=[conversation.pk]) if conversation.connection.active else f"{reverse('journey:hub')}?chat={actor.pk}"
         emit([conversation.connection.other(actor).pk], "Có tin nhắn mới trong kết nối của bạn", path)
+        transaction.on_commit(lambda: _publish(f"conversation_{conversation.pk}", {
+            "type": "chat.message",
+            "message_id": message.pk,
+        }))
     return message
 
 

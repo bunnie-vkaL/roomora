@@ -1,4 +1,13 @@
 {% extends 'journey/base.html' %}
+{% block extra_head %}<style>
+.connection-manage { position: relative; }
+.connection-manage summary { list-style: none; cursor: pointer; }
+.connection-manage summary::-webkit-details-marker { display: none; }
+.connection-manage-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 5; min-width: 190px; padding: 8px; background: var(--paper, #fffdf8); border: 1px solid var(--warm-line, #dcd4c5); border-radius: 12px; box-shadow: 0 12px 30px #4e392b1c; }
+.connection-manage-menu form { margin: 0; }
+.connection-manage-menu button { width: 100%; padding: 9px 10px; text-align: left; background: transparent; color: var(--clay, #944c34); box-shadow: none; }
+.connection-manage-menu button:hover { background: var(--soft-clay, #f5e7df); }
+</style>{% endblock %}
 {% block journey_content %}
 <section class="journey-heading">
   <div><p class="eyebrow">Kết nối của bạn</p><h1>Những cuộc trò chuyện<br>đang chờ bắt đầu.</h1><p>Cả hai đồng ý kết nối mới mở chat. Sau đó, hai bạn có thể trao đổi nhu cầu ở ghép.</p></div>
@@ -14,7 +23,7 @@
       <h3>{{ row.other.name }}</h3>
       {% if row.last_message %}<p class="hub-last-message"><strong>{% if row.last_message.sender_id == request.actor.pk %}Bạn{% else %}{{ row.last_message.sender.name }}{% endif %}:</strong> {{ row.last_message.body|truncatechars:120 }}</p><time class="muted" datetime="{{ row.last_message.created_at|date:'c' }}">{{ row.last_message.created_at|date:'d/m/Y H:i' }}</time>
       {% else %}<p class="muted">Chưa có tin nhắn. Hãy gửi lời chào đầu tiên.</p>{% endif %}
-      <div class="hub-chat-actions"><button type="button" data-chat-person="{{ row.other.pk }}" data-chat-name="{{ row.other.name }}" data-chat-url="{% url 'journey:pair-messages' row.other.pk %}">Nhắn tin</button><a class="button secondary" href="{% url 'journey:chat' row.conversation.pk %}">Xem toàn bộ chat</a></div>
+      <div class="hub-chat-actions"><button type="button" data-chat-person="{{ row.other.pk }}" data-chat-name="{{ row.other.name }}" data-chat-url="{% url 'journey:pair-messages' row.other.pk %}" data-chat-ws-url="/ws/chat/{{ row.conversation.pk }}/">Nhắn tin</button><details class="connection-manage"><summary>Quản lý kết nối</summary><div class="connection-manage-menu"><form method="post" action="{% url 'journey:action' 'disconnect' %}" onsubmit="return confirm('Xoá kết nối với {{ row.other.name|escapejs }}?');">{% include 'journey/fields.html' %}<input type="hidden" name="connection" value="{{ row.conversation.connection_id }}"><button type="submit">Xoá kết nối</button></form><form method="post" action="{% url 'journey:action' 'block' %}" onsubmit="return confirm('Chặn kết nối với {{ row.other.name|escapejs }}?');">{% include 'journey/fields.html' %}<input type="hidden" name="target" value="{{ row.other.pk }}"><button type="submit">Chặn kết nối</button></form></div></details></div>
     </article>
   {% empty %}<section class="empty"><p>Chưa có kết nối hai chiều. Cả hai đồng ý kết nối mới mở trò chuyện.</p></section>{% endfor %}</div>
 </section>

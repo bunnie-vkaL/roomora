@@ -9,32 +9,42 @@ import { initRoomPins } from "./js/modules/room_pins.js";
 import { initCostCalculator } from "./js/modules/cost_calculator.js";
 import { initDrafts } from "./js/modules/drafts.js";
 import { initChat, initConnectionWidget } from "./js/modules/chat.js";
+import { initRealtime } from "./js/modules/realtime.js";
 
 async function post(form, submitter = null) {
-  let response;
-  try {
-    response = await fetch(form.action, {
-      method: "POST",
-      body: new FormData(form, submitter),
-      headers: { Accept: "application/json" },
-      credentials: "same-origin"
-    });
-  } catch {
-    throw new Error("Chưa kết nối được với ứng dụng. Bản nháp vẫn giữ trên máy; hãy thử lưu lại khi có kết nối.");
-  }
-  if (!response.headers.get("Content-Type")?.includes("application/json")) {
-    throw new Error("Phiên làm việc đã thay đổi. Đăng nhập lại; bản nháp vẫn được giữ trên máy.");
-  }
-  const result = await response.json();
-  if (!response.ok) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(form.action, {
+        method: "POST",
+        body: new FormData(form, submitter),
+        headers: { Accept: "application/json" },
+        credentials: "same-origin"
+      });
+    } catch {
+      throw new Error("Chưa kết nối được với ứng dụng. Bản nháp vẫn giữ trên máy; hãy thử lưu lại khi có kết nối.");
+    }
+    if (!response.headers.get("Content-Type")?.includes("application/json")) {
+      throw new Error("Phiên làm việc đã thay đổi. Đăng nhập lại; bản nháp vẫn được giữ trên máy.");
+    }
+    const result = await response.json();
+    if (response.ok) return result;
+    const isStaleMutationKey = response.status === 409 && (result.error || "").includes("Mã thao tác đã dùng");
+    if (isStaleMutationKey && attempt === 0) {
+      const key = form.elements.namedItem("mutation_key");
+      if (key) {
+        key.value = generateUUID();
+        continue;
+      }
+    }
     const error = new Error(result.error || result.detail || "Thao tác chưa hoàn tất.");
     error.status = response.status;
     throw error;
   }
-  return result;
 }
 
 function initAll() {
+  initRealtime();
   try {
     const safetyNotice = sessionStorage.getItem("roomora-safety-notice");
     if (safetyNotice) {
