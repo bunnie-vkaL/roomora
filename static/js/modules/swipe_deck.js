@@ -2,7 +2,7 @@
  * Swipe deck module: handles candidate card touch gestures, drag physics,
  * keyboard controls, and Like/Pass/Save actions.
  */
-import { announce, generateUUID } from "../api.js";
+import { announce, generateUUID } from "../api.js?v=4";
 
 export function initSwipeDeck(postFn) {
   const deck = document.querySelector("[data-swipe-deck]");
@@ -14,7 +14,15 @@ export function initSwipeDeck(postFn) {
   let busy = false;
 
   const show = () => {
-    cards.forEach((card, i) => card.hidden = i !== index);
+    cards.forEach((card, i) => {
+      const visible = i === index;
+      card.hidden = !visible;
+      card.classList.remove("card-fade-in");
+      if (visible) {
+        void card.offsetWidth;
+        card.classList.add("card-fade-in");
+      }
+    });
     const emptyNotice = deck.querySelector("[data-deck-empty]");
     if (emptyNotice) emptyNotice.hidden = index < cards.length;
   };
@@ -30,8 +38,19 @@ export function initSwipeDeck(postFn) {
     deck.setAttribute("aria-busy", "true");
     const controls = [...deck.querySelectorAll("button")];
     controls.forEach(b => b.disabled = true);
+    const card = form.closest("[data-person-card]");
+    const actionClass = form.dataset.deckAction === "like"
+      ? "swipe-action-right"
+      : form.dataset.deckAction === "pass"
+        ? "swipe-action-left"
+        : "";
 
     try {
+      if (card && actionClass) {
+        card.style.transform = "";
+        card.classList.add(actionClass);
+        await new Promise(resolve => setTimeout(resolve, 260));
+      }
       const result = await postFn(form, event.submitter);
       const keyInput = form.elements.namedItem("mutation_key");
       if (keyInput) keyInput.value = generateUUID();
@@ -40,24 +59,25 @@ export function initSwipeDeck(postFn) {
         const saved = form.elements.saved;
         saved.value = saved.value === "1" ? "0" : "1";
         const button = form.querySelector("button");
-        button.textContent = saved.value === "0" ? "Bỏ lưu" : "Lưu xem sau";
-        button.setAttribute(
-          "aria-label",
-          saved.value === "0" ? `Bỏ lưu ${form.dataset.candidateName}` : `Lưu ${form.dataset.candidateName} để xem sau`
-        );
+        const isSaved = saved.value === "0";
+        button.setAttribute("aria-label", isSaved ? `Bỏ lưu ${form.dataset.candidateName}` : `Lưu ${form.dataset.candidateName} để xem sau`);
+        button.setAttribute("aria-pressed", String(isSaved));
+        button.title = isSaved ? "Bỏ lưu" : "Lưu xem sau";
+        const icon = button.querySelector("i");
+        if (icon) icon.classList.toggle("fa-solid", isSaved);
+        if (icon) icon.classList.toggle("fa-regular", !isSaved);
+        if (!icon) button.textContent = isSaved ? "Bỏ lưu" : "Lưu xem sau";
         announce(saved.value === "0" ? "Đã lưu riêng, chưa gửi lượt quan tâm." : "Đã bỏ lưu.");
       } else {
-        if (result.redirect && result.redirect.includes("/chat/")) {
-          location.assign(result.redirect);
-          return;
-        }
         if (form.dataset.deckAction === "like") {
-          location.assign(result.redirect);
-          return;
+          announce(result.redirect && result.redirect.includes("/chat/")
+            ? "Hai bạn đã kết nối. Bạn có thể bắt đầu trò chuyện trong Hub."
+            : "Đã gửi lời mời kết nối. Khi cả hai cùng đồng ý, chat sẽ mở.");
+        } else if (form.dataset.deckAction === "pass") {
+          announce("Đã bỏ qua. Có thể hoàn tác lượt cuối chưa match.");
         }
         index += 1;
         show();
-        announce("Đã bỏ qua. Có thể hoàn tác lượt cuối chưa match.");
         const next = document.querySelector("[data-next-candidates]");
         if (next) {
           const url = new URL(next.href, window.location.origin);
@@ -69,6 +89,7 @@ export function initSwipeDeck(postFn) {
     } catch (error) {
       announce(error.message);
     } finally {
+      card?.classList.remove("swipe-action-right", "swipe-action-left");
       busy = false;
       deck.setAttribute("aria-busy", "false");
       controls.forEach(b => b.disabled = false);

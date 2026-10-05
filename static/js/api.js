@@ -29,8 +29,37 @@ export function generateUUID() {
 }
 
 export function announce(message) {
-  const status = document.querySelector("#journey-status");
-  if (status) status.textContent = message;
+  let widget = document.querySelector(".notification-widget");
+  if (!widget) {
+    widget = document.createElement("aside");
+    widget.className = "notification-widget";
+    widget.setAttribute("aria-label", "Thông báo");
+    widget.setAttribute("aria-live", "polite");
+    (document.body || document.documentElement).appendChild(widget);
+  }
+
+  const notification = document.createElement("div");
+  notification.className = "notification message success";
+  notification.setAttribute("role", "status");
+
+  const text = document.createElement("span");
+  text.textContent = message;
+
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "notification-close";
+  close.setAttribute("aria-label", "Đóng thông báo");
+  close.textContent = "×";
+
+  const dismiss = () => {
+    notification.classList.add("notification--leaving");
+    window.setTimeout(() => notification.remove(), 220);
+  };
+
+  close.addEventListener("click", dismiss);
+  notification.append(text, close);
+  widget.appendChild(notification);
+  window.setTimeout(dismiss, 5200);
 }
 
 export async function apiFetch(endpoint, options = {}) {

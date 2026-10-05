@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'profile_form.css' %}?v=7">
+<link rel="stylesheet" href="{% static 'profile_form.css' %}?v=8">
 <link rel="stylesheet" href="{% static 'profile_identity.css' %}">
 <link rel="stylesheet" href="{% static 'profile_image.css' %}?v=2">
 <section class="profile-edit-header">
@@ -20,7 +20,7 @@
   {% if is_onboarding %}
     <p class="profile-edit-next"><strong>Tiếp theo:</strong> trả lời 16 câu hỏi về lối sống để hoàn tất hồ sơ.</p>
   {% else %}
-    <a class="profile-edit-next profile-edit-next--link" href="{% url 'questionnaire' %}"><strong>Lifestyle</strong><br>Cập nhật thói quen sống và tiêu chí ở cùng →</a>
+    <a class="profile-edit-next profile-edit-next--link" href="{% url 'questionnaire' %}"><strong>Lifestyle</strong><span aria-hidden="true">→</span></a>
   {% endif %}
 </section>
 

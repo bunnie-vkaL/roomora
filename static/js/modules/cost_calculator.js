@@ -1,7 +1,7 @@
 /**
  * Cost calculator module: handles dynamic cost line additions and live budget warnings.
  */
-import { announce } from "../api.js";
+import { announce } from "../api.js?v=4";
 
 export function initCostCalculator() {
   document.querySelectorAll("[data-add-cost]").forEach(button => {

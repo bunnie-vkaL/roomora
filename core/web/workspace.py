@@ -117,7 +117,11 @@ def rooms(request):
     private_rooms = list(request.actor.room_options.filter(workspace__isnull=True).prefetch_related("images", "costs"))
     for option in private_rooms:
         option.cost_overview = room_cost_overview(option, member_count=1)
-    workspaces = list(request.actor.workspaces.filter(active=True, workspace__status="active").select_related("workspace"))
+    workspaces = []
+    for membership in request.actor.workspaces.filter(active=True, workspace__status="active").select_related("workspace"):
+        workspace = workspace_for(request.actor, membership.workspace_id)
+        workspace.room_count = workspace.rooms.count()
+        workspaces.append(workspace)
     return render(request, "journey/rooms.html", {"rooms": private_rooms, "workspaces": workspaces})
 
 

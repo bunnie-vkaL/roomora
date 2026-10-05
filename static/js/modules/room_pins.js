@@ -1,7 +1,7 @@
 /**
  * Room Pins Module: handles interactive image pin placement on photos.
  */
-import { announce } from "../api.js";
+import { announce } from "../api.js?v=4";
 
 export function initRoomPins() {
   document.querySelectorAll("[data-pin-surface]").forEach(surface => {

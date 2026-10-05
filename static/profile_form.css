@@ -1,6 +1,47 @@
 .profile-edit-header{display:flex;align-items:end;justify-content:space-between;gap:42px;margin:0 0 54px;padding:0 0 38px;border-bottom:1px solid var(--line)}.profile-edit-header>div{max-width:680px}.profile-edit-header h1{margin:.12em 0}.profile-edit-header>div>p:last-child{max-width:590px;margin:17px 0 0;color:var(--muted)}.profile-edit-next{max-width:310px;margin:0;padding:15px 17px;border-left:3px solid var(--gold);background:rgba(200,169,107,.12);color:var(--muted);font-size:.84rem;line-height:1.55}.profile-edit-next strong{color:var(--black)}.profile-edit-next--link{transition:background .2s}.profile-edit-next--link:hover{background:rgba(200,169,107,.23)}.profile-edit-form{max-width:none}.profile-form-errors{margin-bottom:24px;padding:14px 16px;border:1px solid #d7a49e;background:#fff1ef;color:#8a2920}.profile-section{display:block;padding:48px 0;border-top:1px solid var(--line)}.profile-section:first-of-type{border-top:0;padding-top:0}.profile-section__heading{max-width:650px;margin:0 0 24px}.profile-section__heading h2{margin:0 0 9px;font-size:1.45rem}.profile-section__heading .eyebrow{margin-bottom:10px}.profile-section__heading>p:last-child,.field-help{margin:0;color:var(--muted);font-size:.84rem}.profile-section__fields{display:grid;gap:16px}.profile-section__fields label{display:grid;gap:5px;font-size:.82rem;color:#45453f}.profile-section__fields input,.profile-section__fields select,.profile-section__fields textarea{margin:0}.profile-section__fields--four{grid-template-columns:repeat(4,minmax(0,1fr))}.profile-section__fields--about{grid-template-columns:minmax(0,.75fr) minmax(0,1.25fr);margin-top:16px}.profile-section__fields--two{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-section__content{min-width:0}.area-fieldset{margin:0 0 23px;padding:0;border:0}.area-fieldset legend{margin-bottom:5px;font:500 1rem var(--sans);color:#45453f}.field-help{margin:0 0 12px}.area-fieldset #id_areas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}.area-fieldset #id_areas label{display:flex;align-items:center;min-height:43px;padding:9px 10px;border:1px solid var(--line);background:#fff;font-size:.82rem;font-weight:400}.area-fieldset #id_areas label:has(input:checked){border-color:var(--gold);background:rgba(200,169,107,.13)}.area-fieldset #id_areas input{margin-right:7px}.profile-edit-actions{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:36px 0 0;border-top:1px solid var(--line)}.profile-edit-actions p{margin:0;color:var(--muted);font-size:.83rem}.profile-edit-actions button{min-width:210px}@media(max-width:760px){.profile-edit-header{display:grid;gap:22px;margin-bottom:38px;padding-bottom:30px}.profile-edit-next{max-width:100%}.profile-section{padding:38px 0}.profile-section__heading{margin-bottom:20px}.profile-section__fields--four{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-section__fields--about{grid-template-columns:1fr}.area-fieldset #id_areas{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:500px){.profile-section__fields--four,.profile-section__fields--two{grid-template-columns:1fr}.area-fieldset #id_areas{grid-template-columns:1fr}.profile-edit-actions{display:grid}.profile-edit-actions button{width:100%}}
 /* Keep the free-form introduction comfortably writable within the basic-info section. */
 .profile-field--bio textarea{min-height:132px;resize:vertical}
+
+/* Keep profile select chevrons comfortably inside the field frame. */
+.profile-section__fields select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 50px;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%234A2C2A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 18px center;
+  background-size: 18px;
+}
+
+/* Lifestyle is a clear next action, not a full-width transparent notice. */
+.profile-edit-next--link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 220px;
+  min-height: 64px;
+  padding: 16px 26px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #E68A4A 0%, #D97736 50%, #C46A2E 100%);
+  box-shadow: 0 8px 20px rgba(217, 119, 54, .24);
+  color: #fff;
+  line-height: 1.2;
+}
+
+.profile-edit-next--link strong {
+  color: inherit;
+  font-size: 1.05rem;
+}
+
+.profile-edit-next--link:hover {
+  background: linear-gradient(135deg, #D97736 0%, #C46A2E 100%);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(217, 119, 54, .32);
+  transform: translateY(-1px);
+}
 .profile-basic-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.34fr);gap:32px;align-items:start}.profile-basic-layout .profile-avatar-upload{min-height:100%;margin:0;padding:22px;border:1px solid var(--line);background:rgba(255,255,255,.52)}.profile-basic-layout .profile-avatar-preview{width:88px;height:88px}.profile-basic-layout .profile-avatar-upload{align-items:flex-start}@media(max-width:860px){.profile-basic-layout{grid-template-columns:1fr}.profile-basic-layout .profile-avatar-upload{min-height:0}}
 .profile-basic-layout{grid-template-columns:minmax(0,1fr) minmax(240px,.3fr);gap:42px}.profile-section__fields--identity{align-items:start}.profile-section__fields--identity>label{align-self:start}.profile-basic-layout .profile-avatar-upload{align-self:start;min-height:0;margin:0;padding:0 0 0 28px;border:0;border-left:1px solid var(--line);background:transparent}.profile-basic-layout .profile-avatar-preview{width:76px;height:76px}@media(max-width:860px){.profile-basic-layout{gap:28px}.profile-basic-layout .profile-avatar-upload{padding:20px 0 0;border-top:1px solid var(--line);border-left:0}}
 .profile-basic-layout{grid-template-columns:minmax(0,1fr) 230px}.profile-section__fields--identity{grid-template-columns:repeat(12,minmax(0,1fr))}.profile-section__fields--identity .profile-field--name,.profile-section__fields--identity .profile-field--bio{grid-column:1/-1}.profile-section__fields--identity .profile-field--hometown,.profile-section__fields--identity .profile-field--birth-year,.profile-section__fields--identity .profile-field--gender{grid-column:span 4}.profile-basic-layout .profile-avatar-upload{display:block}.profile-avatar-title{margin:0 0 14px;font-size:.82rem;font-weight:650;color:#45453f}.profile-basic-layout .profile-avatar-preview{width:112px;height:112px;margin-bottom:16px}.profile-avatar-controls{display:block}.profile-avatar-actions{display:flex;align-items:center;gap:9px;font-size:.84rem}.profile-avatar-actions .avatar-delete-link,.profile-avatar-actions .profile-avatar-label{width:auto;min-height:0;margin:0;padding:0;border:0;background:transparent;color:var(--black);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer}.profile-avatar-actions .avatar-delete-link{color:#a33}.profile-avatar-controls p{max-width:210px;margin:10px 0 0;font-size:.78rem;line-height:1.5}@media(max-width:860px){.profile-section__fields--identity{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-section__fields--identity .profile-field--name,.profile-section__fields--identity .profile-field--bio{grid-column:1/-1}.profile-section__fields--identity .profile-field--hometown,.profile-section__fields--identity .profile-field--birth-year,.profile-section__fields--identity .profile-field--gender{grid-column:span 1}}@media(max-width:500px){.profile-section__fields--identity{grid-template-columns:1fr}.profile-section__fields--identity .profile-field--name,.profile-section__fields--identity .profile-field--hometown,.profile-section__fields--identity .profile-field--birth-year,.profile-section__fields--identity .profile-field--gender,.profile-section__fields--identity .profile-field--bio{grid-column:1}}

@@ -2,7 +2,7 @@
  * Drafts module: manages local draft persistence, conflict resolution banners,
  * and debounced autosaving.
  */
-import { announce, generateUUID } from "../api.js";
+import { announce, generateUUID } from "../api.js?v=4";
 
 export function initDrafts(postFn) {
   const account = document.body.dataset.account;

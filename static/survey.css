@@ -37,3 +37,143 @@
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @media(max-width:850px){.survey-layout{grid-template-columns:1fr;gap:28px;max-width:620px}.survey-overview h2{font-size:1.5rem}.survey-overview>p:not(.survey-kicker){margin-bottom:16px}.survey-topics,.survey-overview .survey-footnote{display:none}.survey-overview .survey-saved{margin:0}.survey-screen .page-shell{padding-top:32px;padding-bottom:32px}.survey-screen .mobile-nav{display:none}.survey-step{margin-bottom:20px}}
 @media(max-width:540px){.survey-option{padding:15px;min-height:60px}.survey-actions button{padding:12px 20px}.survey-fieldset legend{font-size:1.9rem}}
+
+/* Warm Roomora palette for the lifestyle flow. */
+.survey-screen {
+  --survey-ink: #3E2723;
+  --survey-muted: #7A6B61;
+  --survey-clay: #D97736;
+  --survey-line: #E0D4C8;
+  background: rgba(253, 251, 247, .72);
+  color: var(--survey-ink);
+}
+
+.survey-screen .site-header,
+.survey-screen .mobile-nav {
+  background: rgba(253, 251, 247, .9);
+  border-color: var(--survey-line);
+}
+
+.survey-screen .brand,
+.survey-kicker,
+.survey-progress span {
+  color: var(--survey-clay);
+}
+
+.survey-screen .brand {
+  font-family: var(--sans);
+}
+
+.survey-progress {
+  background: #F3E6D8;
+}
+
+.survey-progress span {
+  background: linear-gradient(90deg, #E68A4A, var(--survey-clay));
+}
+
+.survey-topics a,
+.survey-step,
+.survey-overview>p:not(.survey-kicker),
+.survey-back,
+.survey-publish-note,
+.survey-save-note {
+  color: var(--survey-muted);
+}
+
+.survey-topics a[aria-current] {
+  background: #F5E6D3;
+  color: var(--survey-ink);
+}
+
+.survey-topics a:hover {
+  background: #FBF1E6;
+}
+
+.survey-fieldset legend {
+  color: var(--survey-ink);
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+}
+
+.survey-fieldset>p {
+  color: var(--survey-muted);
+}
+
+.survey-option {
+  border-color: var(--survey-line);
+  background: rgba(255, 255, 255, .84);
+}
+
+.survey-option:hover {
+  border-color: #E6A574;
+  background: #FFF8EE;
+}
+
+.survey-option:has(input:checked) {
+  border-color: var(--survey-clay);
+  background: #FDF0E2;
+  box-shadow: inset 0 0 0 1px var(--survey-clay);
+}
+
+.survey-option input[type=radio] {
+  accent-color: var(--survey-clay);
+}
+
+.survey-screen :focus-visible {
+  outline-color: var(--survey-clay);
+}
+
+.survey-actions button {
+  background: linear-gradient(135deg, #E68A4A 0%, #D97736 55%, #C46A2E 100%);
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(217, 119, 54, .2);
+}
+
+.survey-actions button:hover {
+  background: linear-gradient(135deg, #D97736 0%, #C46A2E 100%);
+}
+
+.survey-actions .survey-save {
+  background: #F5EFE6;
+  border: 1px solid var(--survey-line);
+  color: var(--survey-ink);
+  box-shadow: none;
+}
+
+.survey-actions .survey-save:hover {
+  background: #EDE1D4;
+}
+
+.survey-error {
+  color: #8A2920;
+  background: #FFF1EF;
+  border: 1px solid #E5B5AC;
+}
+
+/* Keep the questionnaire header aligned with the shared Roomora navbar. */
+.survey-screen .site-header {
+  background: rgba(253, 251, 247, .96);
+  border-color: var(--line);
+}
+
+.survey-screen .brand {
+  color: var(--black);
+  font: 800 1.45rem/1 var(--sans);
+  letter-spacing: -.055em;
+}
+
+.survey-screen .nav-links a,
+.survey-screen .nav-actions > a {
+  color: var(--muted);
+}
+
+.survey-screen .nav-links a:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+@media(max-width:540px) {
+  .survey-fieldset legend {
+    font-size: 1.75rem;
+  }
+}
