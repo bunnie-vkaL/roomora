@@ -7,12 +7,18 @@ from django.urls import reverse
 
 from core.constants import AREAS, GROUPS, QUESTIONS
 from core.models import PrivateNote, Profile, SavedCandidate, recommendable_profiles
-from core.scoring import REASON_TITLES
-from core.services import DomainError, eligible_target, pair_query
+from core.scoring import REASON_TITLES, score_profiles
+from core.services import DomainError, blocked_profile_ids, eligible_target
+from core.web.legacy_discovery import overlap
+from core.upstash_cache import get as cache_get, set as cache_set
 from core.web.common import number, page, profile_by_id
 
 
-def candidate_card(actor, profile, result=None, context=None):
+DISCOVERY_CACHE_VERSION = "v2"
+_UNSET = object()
+
+
+def candidate_card(actor, profile, result=None, context=None, note=_UNSET, saved=_UNSET):
     result = result or eligible_target(actor, profile)
     living = getattr(profile, "living", None)
     source = getattr(profile, "sample_source", None)
@@ -28,36 +34,72 @@ def candidate_card(actor, profile, result=None, context=None):
     context_reason = ""
     if context:
         context_reason = f"Cùng cân nhắc {context.title}; cần trao đổi thêm về căn và phần tiền mỗi người."
+    if note is _UNSET:
+        note = PrivateNote.objects.filter(owner=actor, candidate=profile).first()
+    if saved is _UNSET:
+        saved = SavedCandidate.objects.filter(owner=actor, candidate=profile).exists()
     return {"profile": profile, "score": result.score, "score_version": result.version,
             "similarities": result.similarities, "differences": result.differences, "warnings": result.warnings,
             "living": living, "lifestyle_sections": lifestyle_sections,
             "behavior": source.behavior_metrics if source else None,
-            "note": PrivateNote.objects.filter(owner=actor, candidate=profile).first(),
+            "note": note,
             "context_reason": context_reason,
-            "saved": SavedCandidate.objects.filter(owner=actor, candidate=profile).exists()}
+            "saved": saved}
 
 
 def candidate_rows(actor, area="", rent=None, context=None, include_decided=False):
     if not actor.is_published or not actor.completed:
         return []
+    cache_key = "roomora:discovery:{}:{}:{}:{}:{}:{}".format(
+        DISCOVERY_CACHE_VERSION, actor.pk, area or "-", rent if rent is not None else "-",
+        context.pk if context else "-", int(include_decided),
+    )
+    cached = cache_get(cache_key)
+    if cached is not None:
+        # Notes and saved state are user mutations; refresh just those two
+        # fields in bulk while reusing the expensive matching calculation.
+        candidate_ids = [row["profile"].pk for row in cached]
+        notes = {note.candidate_id: note for note in PrivateNote.objects.filter(owner=actor, candidate_id__in=candidate_ids)}
+        saved_ids = set(SavedCandidate.objects.filter(owner=actor, candidate_id__in=candidate_ids).values_list("candidate_id", flat=True))
+        for row in cached:
+            row["note"] = notes.get(row["profile"].pk)
+            row["saved"] = row["profile"].pk in saved_ids
+        return cached
     from core.models import Connection
     candidates = recommendable_profiles().exclude(pk=actor.pk).select_related("answers", "living", "sample_source")
     if not include_decided:
         candidates = candidates.exclude(pk__in=actor.swipes.values("target_id"))
-    rows = []
+    # Load pair-level eligibility once. The previous implementation issued
+    # connection/block queries for every candidate, which turned discovery into
+    # an N+1 query loop when many profiles were available.
+    blocked_ids = blocked_profile_ids(actor)
+    active_connection_ids = set()
+    for low_id, high_id in Connection.objects.filter(
+            Q(low_id=actor.pk) | Q(high_id=actor.pk), active=True
+    ).values_list("low_id", "high_id"):
+        active_connection_ids.add(high_id if low_id == actor.pk else low_id)
+    matches = []
     for profile in candidates:
         if area and area not in profile.areas:
             continue
         if rent is not None and not profile.rent_min <= rent <= profile.rent_max:
             continue
-        if not include_decided and Connection.objects.filter(pair_query(actor, profile), active=True).exists():
+        if profile.pk in blocked_ids or (not include_decided and profile.pk in active_connection_ids):
             continue
-        try:
-            result = eligible_target(actor, profile)
-        except DomainError:
+        if not overlap(actor, profile):
             continue
-        rows.append(candidate_card(actor, profile, result, context))
-    return sorted(rows, key=lambda row: (-row["score"], row["profile"].pk))
+        result = score_profiles(actor, profile)
+        if result.excluded or result.score is None:
+            continue
+        matches.append((profile, result))
+    candidate_ids = [profile.pk for profile, _ in matches]
+    notes = {note.candidate_id: note for note in PrivateNote.objects.filter(owner=actor, candidate_id__in=candidate_ids)}
+    saved_ids = set(SavedCandidate.objects.filter(owner=actor, candidate_id__in=candidate_ids).values_list("candidate_id", flat=True))
+    rows = [candidate_card(actor, profile, result, context, notes.get(profile.pk), profile.pk in saved_ids)
+            for profile, result in matches]
+    rows = sorted(rows, key=lambda row: (-row["score"], row["profile"].pk))
+    cache_set(cache_key, rows)
+    return rows
 
 
 @page
@@ -104,7 +146,9 @@ def modern_discover(request):
 
     checkpoint(actor, reverse("journey:discover"))
     guide_area = area or (actor.areas[0] if actor.areas else AREAS[0])
-    guide_recommendations = candidate_rows(actor, guide_area, rent, context)[:3]
+    # Reuse the already-ranked result instead of scoring the whole population
+    # a second time just to render the small area guide.
+    guide_recommendations = [row for row in rows if guide_area in row["profile"].areas][:3]
 
     # URL helpers for template
     def _url_with(extra):

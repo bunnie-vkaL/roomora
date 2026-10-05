@@ -172,6 +172,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("workbook", help="Path to ROOMORA_100_ho_so_mau_Ha_Noi.xlsx")
         parser.add_argument("--dry-run", action="store_true", help="Validate workbook without changing the database")
+        parser.add_argument(
+            "--password",
+            help="Set the same password for imported sample accounts; omit to keep them unusable.",
+        )
 
     def handle(self, *args, **options):
         if not settings.DEBUG:
@@ -212,8 +216,14 @@ class Command(BaseCommand):
                     raise CommandError(f"Tài khoản {username} đã tồn tại và không thuộc bộ dữ liệu này.")
                 if user is None:
                     user = User(username=username)
-                    user.set_unusable_password()
+                    if options.get("password"):
+                        user.set_password(options["password"])
+                    else:
+                        user.set_unusable_password()
                     user.save()
+                elif options.get("password"):
+                    user.set_password(options["password"])
+                    user.save(update_fields=["password"])
                 profile, _ = Profile.objects.get_or_create(user=user, defaults={
                     "name": item["name"], "age": item["age"], "gender": item["gender"],
                     "birth_year": item["birth_year"], "areas": item["areas"],

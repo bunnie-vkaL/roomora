@@ -21,6 +21,7 @@ def navigation(request):
         recent_notifications = list(visible.select_related("event").order_by("-created_at")[:5])
     return {
         "journey_enabled": enabled,
+        "api_base_url": settings.API_BASE_URL,
         "journey_unread": unread,
         "journey_recent_notifications": recent_notifications,
     }

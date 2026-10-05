@@ -6,15 +6,35 @@ concurrently as managed subprocesses.
 Usage:
     python run.py          # Run both without auto-reload
     python run.py --reload # Run both with auto-reload enabled
+    python run.py --production --workers 2 # Run Django + FastAPI via Gunicorn
 """
 import os
 import signal
 import subprocess
 import sys
 import time
+import argparse
+
+
+def run_production():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--production", action="store_true")
+    parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--bind", default="127.0.0.1:8000")
+    args = parser.parse_args()
+    command = [
+        sys.executable, "-m", "gunicorn", "config.asgi:application",
+        "-k", "uvicorn.workers.UvicornWorker",
+        "--workers", str(args.workers), "--bind", args.bind,
+        "--access-logfile", "-", "--error-logfile", "-",
+    ]
+    os.execv(sys.executable, command)
 
 
 def main():
+    if "--production" in sys.argv:
+        run_production()
+
     reload = "--reload" in sys.argv
     python_bin = sys.executable
 

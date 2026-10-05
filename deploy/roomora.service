@@ -1,0 +1,18 @@
+[Unit]
+Description=ROOMORA Django and FastAPI ASGI service
+After=network.target
+
+[Service]
+Type=simple
+User=roomora
+Group=www-data
+WorkingDirectory=/srv/roomora
+EnvironmentFile=/etc/roomora/roomora.env
+ExecStart=/srv/roomora/.venv/bin/gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker --bind 127.0.0.1:8000 --workers 2 --access-logfile - --error-logfile -
+Restart=always
+RestartSec=5
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

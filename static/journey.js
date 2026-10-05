@@ -2,7 +2,7 @@
  * Roomora Journey Orchestrator
  * Modular entry point coordinating native ES modules.
  */
-import { announce, generateUUID } from "./js/api.js?v=4";
+import { announce, generateUUID } from "./js/api.js?v=5";
 import { initRoutineTracks } from "./js/modules/routine.js";
 import { initSwipeDeck } from "./js/modules/swipe_deck.js?v=4";
 import { initRoomPins } from "./js/modules/room_pins.js";

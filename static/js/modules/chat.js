@@ -2,7 +2,7 @@
  * Chat module: handles resilient 4s message polling, optimistic rendering,
  * and client UUID message deduplication.
  */
-import { announce, generateUUID } from "../api.js?v=4";
+import { announce, generateUUID } from "../api.js?v=5";
 
 export function initChat(postFn, draftsMap) {
   const chatLog = document.querySelector("[data-chat-log]");

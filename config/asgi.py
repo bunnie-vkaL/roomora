@@ -1,8 +1,8 @@
 """ASGI config for Roomora.
 
 Routes requests to:
-- /api/* and /docs to FastAPI (for typed API bridge & interactive Swagger documentation)
-- All other routes to Django ASGI (for pages, templates, auth, and admin)
+- /api/* to FastAPI (including /api/docs and /api/health)
+- All other routes to Django ASGI (for pages, templates, auth, admin, and static fallback)
 """
 import os
 import django

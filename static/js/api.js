@@ -28,6 +28,13 @@ export function generateUUID() {
   });
 }
 
+export function apiUrl(endpoint) {
+  if (/^https?:\/\//i.test(endpoint)) return endpoint;
+  if (endpoint.startsWith("/api/")) return endpoint;
+  const base = (window.ROOMORA_API_BASE_URL || "/api").replace(/\/$/, "");
+  return `${base}/${endpoint.replace(/^\//, "")}`;
+}
+
 export function announce(message) {
   let widget = document.querySelector(".notification-widget");
   if (!widget) {
@@ -79,7 +86,7 @@ export async function apiFetch(endpoint, options = {}) {
     }
   }
 
-  const response = await fetch(endpoint, {
+  const response = await fetch(apiUrl(endpoint), {
     ...options,
     headers,
     credentials: "same-origin"

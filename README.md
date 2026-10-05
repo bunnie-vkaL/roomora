@@ -37,6 +37,14 @@ python manage.py check --deploy
 
 Set `SECRET_KEY`, `DEBUG=False`, and `ALLOWED_HOSTS` in the environment before any deployment. Password reset links print to the server console in this local MVP.
 
+For PostgreSQL/Supabase, set `DATABASE_URL` to the connection URI. The settings parse both `postgres://` and `postgresql://`; port `6543` is treated as a transaction pooler (`CONN_MAX_AGE=0`, server-side cursors disabled). Keep the URI in the deployment secret store or an ignored `.env` file, never in source control.
+
+## Production topology
+
+Deploy one public origin: Nginx terminates HTTPS and serves `/static/` directly, while proxying all other requests to `config.asgi:application`. Django serves the pages and sessions; FastAPI is mounted under the same origin at `/api/`. This avoids cross-origin cookies and CORS. Use `gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker` behind Nginx, run `python manage.py collectstatic --noinput`, and keep `STATIC_ROOT` separate from the source `static/` directory. Example Nginx and systemd files are in `deploy/`.
+
+The helper scripts support the same production mode: `python run.py --production --workers 2`, `python frontend.py --production --workers 2`, or `python api.py --production --workers 2`. They all launch the unified ASGI app; do not start separate frontend/API processes in production.
+
 ## Pilot workflow
 
 Staff can view aggregate pilot outcomes and download a CSV at `/staff/pilot/`. The study keeps contact information and raw questionnaire answers out of its export.

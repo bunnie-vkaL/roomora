@@ -2,7 +2,7 @@
  * Swipe deck module: handles candidate card touch gestures, drag physics,
  * keyboard controls, and Like/Pass/Save actions.
  */
-import { announce, generateUUID } from "../api.js?v=4";
+import { announce, generateUUID } from "../api.js?v=5";
 
 export function initSwipeDeck(postFn) {
   const deck = document.querySelector("[data-swipe-deck]");

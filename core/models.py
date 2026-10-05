@@ -59,6 +59,9 @@ class Profile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [models.Index(fields=["is_published", "is_synthetic"])]
+
     def clean(self):
         if self.age < 18:
             raise ValidationError({"age": "Bạn cần từ 18 tuổi trở lên."})
@@ -145,6 +148,7 @@ class ConnectionRequest(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["sender", "recipient"], name="unique_connection_direction")]
+        indexes = [models.Index(fields=["sender", "status"]), models.Index(fields=["recipient", "status"])]
 
     def clean(self):
         if self.sender_id == self.recipient_id:
@@ -163,6 +167,7 @@ class Connection(models.Model):
             models.UniqueConstraint(fields=["low", "high"], name="core_unique_pair"),
             models.CheckConstraint(condition=Q(low__lt=F("high")), name="core_ordered_pair"),
         ]
+        indexes = [models.Index(fields=["low", "active"]), models.Index(fields=["high", "active"])]
 
     def other(self, profile):
         return self.high if self.low_id == profile.pk else self.low
@@ -180,6 +185,7 @@ class SwipeDecision(models.Model):
             models.UniqueConstraint(fields=["actor", "target"], name="core_unique_swipe"),
             models.CheckConstraint(condition=~Q(actor=F("target")), name="core_no_self_swipe"),
         ]
+        indexes = [models.Index(fields=["actor", "choice", "updated_at"]), models.Index(fields=["target", "choice", "updated_at"])]
 
 
 class DecisionEvent(models.Model):
@@ -217,6 +223,7 @@ class UserBlock(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["actor", "target"], name="core_unique_block")]
+        indexes = [models.Index(fields=["target", "actor"])]
 
 
 class Report(models.Model):
@@ -531,3 +538,4 @@ class Notification(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["event", "profile"], name="core_unique_notification")]
+        indexes = [models.Index(fields=["profile", "created_at"]), models.Index(fields=["profile", "read", "created_at"])]
