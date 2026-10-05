@@ -8,8 +8,9 @@
   <link rel="stylesheet" href="{% static 'profile.css' %}?v=5">
   {% if journey_enabled %}<link rel="stylesheet" href="{% static 'journey.css' %}"><script type="module" src="{% static 'journey.js' %}"></script>{% endif %}
   <link rel="stylesheet" href="{% static 'flow.css' %}">
+  {% block extra_head %}{% endblock %}
 </head>
-<body data-account="{{ user.pk|default:'' }}">
+<body class="{% block body_class %}{% endblock %}" data-account="{{ user.pk|default:'' }}">
   <header class="site-header">
     <div class="nav-shell">
       <a class="brand" href="{% url 'home' %}">ROOMORA</a>
