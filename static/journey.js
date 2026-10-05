@@ -35,9 +35,19 @@ async function post(form, submitter = null) {
 }
 
 function initAll() {
+  try {
+    const safetyNotice = sessionStorage.getItem("roomora-safety-notice");
+    if (safetyNotice) {
+      sessionStorage.removeItem("roomora-safety-notice");
+      announce(safetyNotice);
+    }
+  } catch {
+    // Session storage can be disabled without blocking the page.
+  }
   initDiscoveryView();
   initSavedView();
   initSavedCompare();
+  initSafetyActions(post);
   initProfilePreviews();
   initAreaTagNavigation();
   document.querySelectorAll("[data-go-back]").forEach(button => {
@@ -51,6 +61,79 @@ function initAll() {
   const drafts = initDrafts(post);
   initChat(post, drafts);
   initConnectionWidget(post);
+}
+
+function initSafetyActions(postFn) {
+  document.querySelectorAll("[data-report-toggle]").forEach(toggle => {
+    if (toggle.dataset.reportInitialized) return;
+    toggle.dataset.reportInitialized = "true";
+    toggle.addEventListener("click", () => {
+      const popover = document.getElementById(toggle.getAttribute("aria-controls"));
+      if (!popover) return;
+      document.querySelectorAll("[data-report-popover]:not([hidden])").forEach(open => {
+        if (open !== popover) {
+          open.hidden = true;
+          document.body.classList.remove("safety-modal-open");
+        }
+      });
+      if (popover.parentElement !== document.body) document.body.appendChild(popover);
+      popover.hidden = !popover.hidden;
+      toggle.setAttribute("aria-expanded", String(!popover.hidden));
+      document.body.classList.toggle("safety-modal-open", !popover.hidden);
+      if (!popover.hidden) popover.querySelector("textarea")?.focus({ preventScroll: true });
+    });
+  });
+
+  document.querySelectorAll("[data-report-close]").forEach(closeButton => {
+    if (closeButton.dataset.reportCloseInitialized) return;
+    closeButton.dataset.reportCloseInitialized = "true";
+    closeButton.addEventListener("click", () => {
+      const modal = closeButton.closest("[data-report-popover]");
+      if (!modal) return;
+      modal.hidden = true;
+      document.body.classList.remove("safety-modal-open");
+      document.querySelector(`[aria-controls="${modal.id}"]`)?.setAttribute("aria-expanded", "false");
+    });
+  });
+
+  document.querySelectorAll("form[data-safety-action]").forEach(form => {
+    if (form.dataset.safetyInitialized) return;
+    form.dataset.safetyInitialized = "true";
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const button = event.submitter || form.querySelector("button[type='submit']");
+      if (button) button.disabled = true;
+      try {
+        await postFn(form, event.submitter);
+        const name = form.dataset.candidateName || "hồ sơ";
+        if (form.dataset.safetyAction === "report") {
+          const popover = form.closest("[data-report-popover]");
+          const toggle = popover && document.querySelector(`[aria-controls="${popover.id}"]`);
+          if (popover) popover.hidden = true;
+          toggle?.setAttribute("aria-expanded", "false");
+          form.reset();
+          announce(`Đã gửi báo cáo về ${name}. Cảm ơn bạn đã phản hồi.`);
+        } else if (form.dataset.safetyAction === "safety") {
+          try {
+            sessionStorage.setItem("roomora-safety-notice", `Đã báo cáo và chặn ${name}. Danh sách gợi ý đã được cập nhật.`);
+          } catch {
+            // The reload still refreshes the recommendation list.
+          }
+          window.location.reload();
+        } else {
+          try {
+            sessionStorage.setItem("roomora-safety-notice", `Đã chặn ${name}. Danh sách gợi ý đã được cập nhật.`);
+          } catch {
+            // The reload still refreshes the recommendation list.
+          }
+          window.location.reload();
+        }
+      } catch (error) {
+        announce(error.message);
+        if (button) button.disabled = false;
+      }
+    });
+  });
 }
 
 function initSavedCompare() {
@@ -121,7 +204,7 @@ function initSavedView() {
 }
 
 function initAreaTagNavigation() {
-  const updateAreaGuide = async url => {
+  const updateAreaGuide = async (url, options = {}) => {
     const response = await fetch(url, {
       headers: { "X-Requested-With": "XMLHttpRequest" },
       credentials: "same-origin"
@@ -136,6 +219,11 @@ function initAreaTagNavigation() {
 
     currentAreaGuide.replaceWith(nextAreaGuide);
     window.history.pushState({}, "", url);
+    initProfilePreviews();
+    if (options.showList) {
+      document.querySelector('[data-discovery-view="list"]')?.click();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
     initAreaTagNavigation();
   };
 
@@ -148,7 +236,7 @@ function initAreaTagNavigation() {
       link.dataset.areaLoading = "true";
 
       try {
-        await updateAreaGuide(link.href);
+        await updateAreaGuide(link.href, { showList: link.dataset.areaOpenList === "true" });
       } catch (error) {
         announce(error.message);
       } finally {
@@ -198,6 +286,8 @@ function initProfilePreviews() {
   };
 
   triggers.forEach(trigger => {
+    if (trigger.dataset.profilePreviewInitialized) return;
+    trigger.dataset.profilePreviewInitialized = "true";
     trigger.addEventListener("click", () => {
       const modalId = trigger.dataset.profilePreview || trigger.dataset.compareOpen;
       const modal = document.getElementById(modalId);
@@ -217,6 +307,8 @@ function initProfilePreviews() {
   });
 
   document.querySelectorAll("[data-profile-preview-close]").forEach(button => {
+    if (button.dataset.profilePreviewCloseInitialized) return;
+    button.dataset.profilePreviewCloseInitialized = "true";
     button.addEventListener("click", close);
   });
 

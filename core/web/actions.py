@@ -92,7 +92,7 @@ def perform(request, action_name):
     actor, data = request.actor, request.POST
     expected = data.get("expected_version")
     destination = reverse("journey:hub")
-    if action_name in ("like", "pass", "save-candidate", "note", "block", "report"):
+    if action_name in ("like", "pass", "save-candidate", "note", "block", "report", "safety"):
         target = profile_by_id(data.get("target"))
         destination = reverse("journey:discover")
         if action_name in ("like", "pass"):
@@ -120,9 +120,15 @@ def perform(request, action_name):
                 note = PrivateNote(owner=actor, candidate=target)
             note.body = text(data, "body", 3000)
             note.save()
-            destination = reverse("journey:candidate", args=[target.pk])
-        elif action_name == "block":
+            destination = reverse("journey:discover")
+        elif action_name in ("block", "safety"):
             block_profile(actor, target)
+            if action_name == "safety":
+                if target.pk == actor.pk:
+                    raise DomainError("Không thể báo cáo chính mình.")
+                if Report.objects.filter(reporter=actor, created_at__date=timezone.localdate()).count() >= 20:
+                    raise DomainError("Bạn đã gửi nhiều báo cáo. Vui lòng thử lại vào ngày mai.", 429)
+                Report.objects.create(reporter=actor, target=target, reason=text(data, "reason", 1000, True))
         else:
             if target.pk == actor.pk:
                 raise DomainError("Không thể báo cáo chính mình.")

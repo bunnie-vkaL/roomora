@@ -70,8 +70,30 @@
     </div>
   </section>
 
+  <section class="profile-section profile-needs-section">
+    <div class="profile-section__heading"><p class="eyebrow">03 · Nhu cầu & nhịp sống</p><h2>Điều giúp bạn thấy dễ chịu ở nhà</h2><p>Thông tin này được cập nhật ngay trong hồ sơ và dùng để gợi ý người hợp nhịp. Khu vực và ngân sách đã nằm ở phần trên nên không lặp lại ở đây.</p></div>
+    <div class="profile-section__content profile-needs-grid">
+      <div class="profile-section__fields profile-section__fields--two">
+        <label>{{ living_form.move_in_from.label }}{{ living_form.move_in_from }}{% for error in living_form.move_in_from.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ living_form.move_in_until.label }}{{ living_form.move_in_until }}{% for error in living_form.move_in_until.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      </div>
+      <label>{{ living_form.needs.label }}{{ living_form.needs }}{% for error in living_form.needs.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      <div class="profile-section__fields profile-section__fields--two">
+        <label>{{ living_form.sleep_at.label }}{{ living_form.sleep_at }}{% for error in living_form.sleep_at.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ living_form.wake_at.label }}{{ living_form.wake_at }}{% for error in living_form.wake_at.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ living_form.quiet_from.label }}{{ living_form.quiet_from }}{% for error in living_form.quiet_from.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ living_form.quiet_until.label }}{{ living_form.quiet_until }}{% for error in living_form.quiet_until.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      </div>
+      <div class="profile-section__fields profile-section__fields--two">
+        <label>{{ living_form.total_monthly_budget.label }}{{ living_form.total_monthly_budget }}{% for error in living_form.total_monthly_budget.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ living_form.upfront_budget.label }}{{ living_form.upfront_budget }}{% for error in living_form.upfront_budget.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
+      </div>
+      <label class="profile-checkbox-field">{{ living_form.notifications_enabled }}<span>{{ living_form.notifications_enabled.label }}</span></label>
+    </div>
+  </section>
+
   <section class="profile-section">
-    <div class="profile-section__heading"><p class="eyebrow">03 · Kết nối</p><h2>Thông tin liên hệ</h2><p>Chỉ hiển thị sau khi cả hai cùng đồng ý kết nối.</p></div>
+    <div class="profile-section__heading"><p class="eyebrow">04 · Kết nối</p><h2>Thông tin liên hệ</h2><p>Chỉ hiển thị sau khi cả hai cùng đồng ý kết nối.</p></div>
     <div class="profile-section__fields profile-section__fields--two profile-section__content">
       <label>{{ form.contact_type.label }}{{ form.contact_type }}{% for error in form.contact_type.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>
       <label>{{ form.contact_value.label }}{{ form.contact_value }}{% for error in form.contact_value.errors %}<small class="error">{{ error }}</small>{% endfor %}</label>

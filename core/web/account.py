@@ -4,13 +4,14 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from core.constants import GROUPS, QUESTIONS
-from core.forms import EmailAuthenticationForm, LifestyleQuestionForm, ProfileForm, RegistrationForm
-from core.models import LifestyleAnswers, PilotEvent, Profile
+from core.forms import EmailAuthenticationForm, LifestyleQuestionForm, PreferencesForm, ProfileForm, RegistrationForm
+from core.models import LifestyleAnswers, LivingPreferences, PilotEvent, Profile
 from core.scoring import SCORING_VERSION
 
 
@@ -86,16 +87,29 @@ def profile_edit(request):
     profile = request.user.profile
     is_onboarding = bool(request.session.get("profile_onboarding"))
     form = ProfileForm(request.POST or None, request.FILES or None, instance=profile)
-    if request.method == "POST" and form.is_valid():
-        profile = form.save(commit=False)
-        profile.save()
+    living = LivingPreferences.objects.filter(profile=profile).first()
+    living_form = PreferencesForm(request.POST or None, instance=living, prefix="living")
+    if request.method == "POST" and form.is_valid() and living_form.is_valid():
+        with transaction.atomic():
+            profile = form.save(commit=False)
+            profile.save()
+            living = living_form.save(commit=False)
+            living.profile = profile
+            if living.pk:
+                living.version += 1
+            living.save()
         if is_onboarding:
             request.session.pop("profile_onboarding", None)
             messages.success(request, "Thông tin cơ bản đã được lưu. Tiếp tục trả lời lifestyle để hoàn tất hồ sơ.")
             return redirect("questionnaire")
         messages.success(request, "Đã lưu thay đổi hồ sơ.")
         return redirect("profile_edit")
-    return render(request, "core/profile_form.html", {"form": form, "profile": profile, "is_onboarding": is_onboarding})
+    return render(request, "core/profile_form.html", {
+        "form": form,
+        "living_form": living_form,
+        "profile": profile,
+        "is_onboarding": is_onboarding,
+    })
 
 
 @login_required

@@ -2,11 +2,11 @@
 
 from django.core import signing
 from django.db.models import Q
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 
 from core.constants import AREAS, GROUPS, QUESTIONS
-from core.models import Profile, SavedCandidate, recommendable_profiles
+from core.models import PrivateNote, Profile, SavedCandidate, recommendable_profiles
 from core.scoring import REASON_TITLES
 from core.services import DomainError, eligible_target, pair_query
 from core.web.common import number, page, profile_by_id
@@ -32,6 +32,7 @@ def candidate_card(actor, profile, result=None, context=None):
             "similarities": result.similarities, "differences": result.differences, "warnings": result.warnings,
             "living": living, "lifestyle_sections": lifestyle_sections,
             "behavior": source.behavior_metrics if source else None,
+            "note": PrivateNote.objects.filter(owner=actor, candidate=profile).first(),
             "context_reason": context_reason,
             "saved": SavedCandidate.objects.filter(owner=actor, candidate=profile).exists()}
 
@@ -138,13 +139,7 @@ def modern_discover(request):
 
 @page
 def candidate(request, profile_id):
-    from core.models import PrivateNote
-    from core.services import checkpoint
-    profile = profile_by_id(profile_id)
-    card = candidate_card(request.actor, profile)
-    note = PrivateNote.objects.filter(owner=request.actor, candidate=profile).first()
-    checkpoint(request.actor, request.path)
-    return render(request, "journey/candidate.html", {"card": card, "actor": request.actor, "note": note})
+    return redirect("journey:discover")
 
 
 @page
