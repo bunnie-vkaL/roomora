@@ -19,6 +19,7 @@ from core.web.common import number, page, profile_by_id
 @page
 def hub(request):
     actor = request.actor
+    from core.web.discovery import candidate_card
     conversations = []
     connected_ids = set()
     blocked_ids = blocked_profile_ids(actor)
@@ -30,6 +31,7 @@ def hub(request):
         if conversation:
             connected_ids.add(other.pk)
             conversations.append({"conversation": conversation, "other": other,
+                                  "profile_card": candidate_card(actor, other),
                                   "last_message": conversation.messages.select_related("sender").order_by("-pk").first()})
     available_ids = set(recommendable_profiles().values_list("pk", flat=True))
     outgoing = []
@@ -133,4 +135,3 @@ def pair_messages(request, profile_id):
                              "body": body, "created_at": workspace.created_at.isoformat()})
             messages.sort(key=lambda message: message["created_at"])
     return JsonResponse({"messages": messages, "connected": connection.active})
-
