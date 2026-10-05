@@ -350,7 +350,7 @@ class RoommateWorkflowTests(TestCase):
             },
         )
         self.client.force_login(self.a.user)
-        response = self.client.get(reverse("journey:candidate", args=[self.b.pk]))
+        response = self.client.get(reverse("journey:discover"), {"view": "list"})
         self.assertContains(response, "16 lựa chọn lifestyle")
         self.assertContains(response, "Hành vi mô phỏng")
         self.assertContains(response, "Ước tính")
@@ -589,9 +589,9 @@ class RoommateWorkflowTests(TestCase):
     def test_private_notes_are_owner_scoped_and_escape_html(self):
         self.post(self.a, "note", target=self.b.pk, expected_version=0, body="PRIVATE-NOTE <script>alert(1)</script>")
         self.client.force_login(self.a.user)
-        self.assertContains(self.client.get(reverse("journey:candidate", args=[self.b.pk])), "&lt;script&gt;")
+        self.assertContains(self.client.get(reverse("journey:discover"), {"view": "list"}), "&lt;script&gt;")
         self.client.force_login(self.c.user)
-        self.assertNotContains(self.client.get(reverse("journey:candidate", args=[self.b.pk])), "PRIVATE-NOTE")
+        self.assertNotContains(self.client.get(reverse("journey:discover"), {"view": "list"}), "PRIVATE-NOTE")
         self.assertEqual(self.post(self.a, "note", target=self.b.pk, expected_version=0, body="Overwrite").status_code, 409)
 
     def test_people_compare_requires_two_or_three_saved_candidates(self):
@@ -851,10 +851,11 @@ class RoommateWorkflowTests(TestCase):
         m.MoveInTask.objects.create(workspace=workspace, title="Dọn", assignee=self.b)
         self.client.force_login(self.a.user)
         pages = [(name, []) for name in ("discover", "saved", "hub", "preferences", "rooms", "room-new", "notifications")]
-        pages += [("candidate", [self.b.pk]), ("chat", [workspace.conversation_id]), ("workspace", [workspace.pk]), ("agreement", [workspace.pk]), ("room", [room.pk]), ("room-edit", [private.pk])]
+        pages += [("chat", [workspace.conversation_id]), ("workspace", [workspace.pk]), ("agreement", [workspace.pk]), ("room", [room.pk]), ("room-edit", [private.pk])]
         for name, args in pages:
             with self.subTest(page=name):
                 self.assertEqual(self.client.get(reverse("journey:" + name, args=args)).status_code, 200)
+        self.assertRedirects(self.client.get(reverse("journey:candidate", args=[self.b.pk])), reverse("journey:discover"))
 
     def test_anonymous_feature_off_and_csrf_gate(self):
         self.assertEqual(self.client.get(reverse("journey:hub")).status_code, 302)
