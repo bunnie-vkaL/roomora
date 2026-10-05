@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from core.constants import QUESTIONS
+from core.constants import GROUPS, QUESTIONS
 from core.forms import EmailAuthenticationForm, LifestyleQuestionForm, ProfileForm, RegistrationForm
 from core.models import LifestyleAnswers, PilotEvent, Profile
 from core.scoring import SCORING_VERSION
@@ -134,8 +134,11 @@ def delete_avatar(request):
 def questionnaire(request):
     profile = request.user.profile
     answers, _ = LifestyleAnswers.objects.get_or_create(profile=profile)
+    valid_keys = {key for key, _, _, options in QUESTIONS
+                  if type(answers.values.get(key)) is int and 0 <= answers.values[key] < len(options)}
+    resume_step = next((i for i, (key, *_) in enumerate(QUESTIONS, 1) if key not in valid_keys), 1)
     try:
-        step = int(request.POST.get("step", request.GET.get("step", 1)))
+        step = int(request.POST.get("step", request.GET.get("step", resume_step)))
     except (TypeError, ValueError):
         step = 1
     step = max(1, min(step, len(QUESTIONS)))
@@ -163,6 +166,14 @@ def questionnaire(request):
         PilotEvent.objects.create(user=request.user, kind="profile_published")
         messages.success(request, "Hồ sơ đã sẵn sàng. Đây là những người phù hợp với bạn.")
         return redirect("dashboard")
-    answered_count = sum(key in answers.values for key, _, _, _ in QUESTIONS)
-    return render(request, "core/questionnaire.html", {"form": form, "step": step, "total_steps": len(QUESTIONS),
-                                                        "question": question, "answered_count": answered_count})
+    survey_groups = []
+    for group_key, (title, _) in GROUPS.items():
+        group_questions = [(i, key) for i, (key, group, *_) in enumerate(QUESTIONS, 1) if group == group_key]
+        survey_groups.append({"title": title, "step": group_questions[0][0],
+                              "total": len(group_questions),
+                              "answered": sum(key in valid_keys for _, key in group_questions),
+                              "current": group_key == question[1]})
+    return render(request, "core/questionnaire.html", {"form": form, "step": step,
+                  "total_steps": len(QUESTIONS), "question": question,
+                  "answered_count": len(valid_keys), "survey_groups": survey_groups,
+                  "group_title": GROUPS[question[1]][0], "previous_step": step - 1})

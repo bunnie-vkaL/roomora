@@ -2,7 +2,8 @@
 .survey-screen .site-header,.survey-screen .mobile-nav{background:rgba(255,255,255,.97);border-color:var(--survey-line)}
 .survey-screen .brand{font-family:var(--sans);font-weight:800;letter-spacing:-.04em;color:var(--survey-ink)}
 .survey-screen .page-shell{padding-top:64px}
-.survey-layout{display:grid;grid-template-columns:260px minmax(0,620px);gap:80px;max-width:960px;margin:0 auto}
+.survey-layout{display:grid;grid-template-columns:260px minmax(0,620px);gap:80px;max-width:960px;margin:0 auto;align-items:start}
+.survey-question{min-height:calc(100vh - 180px)}
 .survey-kicker{font-size:.72rem;font-weight:750;letter-spacing:.1em;color:var(--survey-blue);margin:0 0 16px}
 .survey-overview h2{font:700 1.8rem/1.15 var(--sans);letter-spacing:-.04em;margin:0 0 12px}
 .survey-overview>p:not(.survey-kicker){color:var(--survey-muted);font-size:.9rem;margin:0 0 24px}
@@ -17,9 +18,9 @@
 .survey-overview .survey-footnote{font-size:.78rem;line-height:1.6;margin:28px 12px 0}
 .survey-step{display:flex;justify-content:space-between;gap:18px;color:var(--survey-muted);font-size:.85rem;margin:0 0 25px}
 .survey-fieldset{border:0;margin:0;padding:0;min-width:0}
-.survey-fieldset legend{font:700 clamp(1.8rem,3.3vw,2.65rem)/1.15 var(--sans);letter-spacing:-.04em;padding:0;width:100%;color:var(--survey-ink)}
+.survey-fieldset legend{font:700 clamp(1.8rem,3.3vw,2.65rem)/1.15 var(--sans);letter-spacing:-.04em;padding:0;width:100%;color:var(--survey-ink);min-height:6.2rem;display:flex;align-items:flex-start}
 .survey-fieldset>p{color:var(--survey-muted);font-size:.94rem;margin:18px 0 28px}
-.survey-options{display:grid;gap:12px}
+.survey-options{display:grid;gap:12px;min-height:292px;align-content:start}
 .survey-option{display:flex;align-items:center;gap:14px;min-height:64px;padding:17px 20px;border:1px solid var(--survey-line);border-radius:12px;font-size:.98rem;font-weight:500;cursor:pointer;line-height:1.5;background:#fff}
 .survey-option:hover{border-color:#9fb9df;background:#f8fbff}
 .survey-option:has(input:checked){border-color:var(--survey-blue);background:#edf4ff;box-shadow:inset 0 0 0 1px var(--survey-blue)}
